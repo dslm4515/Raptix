@@ -1,0 +1,24 @@
+# Build musl libc
+
+cd $RPTX/sources
+tar xf musl-1.2.3.tar.gz && cd musl-1.2.3
+
+./configure --prefix=/system        \
+            --bindir=/system/bin    \
+            --includedir=/apps/inc  \
+            --syslibdir=/system/lib \
+            --target=$LFS_TGT
+# Build
+make
+
+# Install musl libc
+make install
+
+# Create link for ldd:
+ln -sv /system/lib/ld-musl-x86_64.so.1 ${RPTX}/system/bin/ldd
+
+# Create config for dynamic library loading:
+cat > /system/etc/ld-musl-x86_64.path << "EOF"
+/system/lib
+/apps/lib
+EOF

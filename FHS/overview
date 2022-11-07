@@ -1,0 +1,66 @@
+# Top-Level Directories
+/apps ------> non-system critical program not required for boot
+/build -----> Source code storage and package build
+/home ------> Home folders for users
+/help ------> Documentation (manpages, docs, info)...can be absent to save space
+/media -----> Mount point for removeable media
+/opt -------> Optional/Alternative Apps
+/system ----> base OS
+/tmp -------> Temporary files. Emptied at shutdown or boot up
+/var -------> Variable Data
+
+
+# /system -- Base Operating system (should have everything to boot to a shell)
+/system/bin -------> Executable binaries
+/system/boot ------> kernel(s) and bootloader (grub)
+/system/boot/sys --> Bootscripts & init system
+/system/data ------> Data files (replaces /usr/share)
+/system/efi -------> Mounted EFI partition
+/system/etc -------> Configuration files
+/system/exec ------> Internal binaries not used by scripts or users
+/system/dev -------> Device files used by udev (replaces /dev)
+/system/lib -------> Shared System Libraries
+/system/log -------> System logs (kernel, boot, etc)
+/system/log/pkgs --> Contains info on installed system packages. Each file will have name, desc, version, & file list
+/system/proc ------> Mounted virtual procfs (Kernel & Process info)
+/system/run -------> Runtime-variable data
+/system/sys -------> Mounted virtual sysfs (Kernel & System info)
+
+# /apps -- Software not required for boot
+/apps/bin -----------> Executable binaries from installed software
+/apps/data ----------> Data files
+/apps/etc -----------> Configurations for apps
+/apps/exec ----------> Internal binaries not run by users or scripts 
+/apps/inc -----------> Headers (replaced /usr/include)
+/apps/lib -----------> Shared libraries
+/apps/log/packages --> What apps are stored. Each file will have name, desc, version, & file list
+
+# /build -- Source code storage and package build
+/build/src/files ------> Files added to sources
+/build/src/pkgs -------> Archived/packaged source, usually in .tar.gz or .txz
+/build/src/patches ----> Patches to fix sources
+/build/pkgs -----------> Compiled packages from source
+/build/stage ----------> Temporary directory used to install software then archived into a package (used for DESTDIR=)
+/build/bstage ---------> Temporary directory used to install software documentation then archived into a package (used for DESTDIR=)
+
+# /help -- Documentation [Optional]
+/help/man -----> Manpages
+/help/info ----> infopages
+/help/doc -----> Docs that are not manpages or infopages
+/help/gtkdoc --> Generated GTKdoc's
+
+# /media -- Removeable Media: Unique mountpoint per device
+/media/usb ---> Mountpoint for usb storage drive
+/media/disc --> Mountpoint for DVD/CD
+
+# /opt -- Optional/Alernative Apps
+/opt/Xorg --> The Xorg Window System
+
+# /var -- Variable Data files
+/var/cache ---> App Cache data
+/var/crash ---> Crash dumps from apps
+/var/lib -----> Variable state info
+/var/lock ----> Lock files
+/var/log -----> Log files from apps
+/var/mail ----> [optional] user mailboxes
+/var/opt -----> Variable data for /opt

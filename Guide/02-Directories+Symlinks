@@ -1,0 +1,16 @@
+# Create basic directories and symlinks
+
+# Create top-level directorties
+mkdir -pv $RPTX/{apps,system,log,tmp,var}
+
+mkdir -pv $RPTX/system/{bin,lib}
+mkdir -pv $RPTX/system/log/pkgs
+
+mkdir -pv $RPTX/help/man
+
+# Create symlinks to the RPTX directory tree.
+# This makes it easier to install compiled software.
+sudo ln -sv $RPTX/system /system
+sudo ln -sv $RPTX/apps   /apps
+sudo ln -sv $RPTX/help   /help
+

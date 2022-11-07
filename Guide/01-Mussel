@@ -1,0 +1,45 @@
+# Download mussel to build a toolchain
+cd $RPTX/sources
+git clone https://github.com/firasuke/mussel
+
+# For this build, use commit 7822b12529d9004ef56bc783c99d4c67c88f0280
+# as future clones of repos may have an newer gcc version
+cd mussel
+git checkout 7822b12529d9004ef56bc783c99d4c67c88f0280
+
+# Make sure host has all requirements:
+./check.sh
+
+# Modify ./mussel.sh to change these:
+# MPREFIX="/_tools"
+# MSYSROOT="/_tools"
+
+# Build toolchain. Ommit -p in not building in parallel and using all 
+# the host's CPU cores:
+sudo ./mussel.sh x86_64 -l -o -p
+
+# Move built toolchain to the $RPTX directory and create a symlink:
+sudo chown -R rptx /_tools
+sudo mv /_tools $RPTX/_tools
+sudo ln -s $RPTX/_tools /_tools
+
+# The new cross compiler has built-in specs which refer to the musl 
+# dynamic loader  /lib/ld-musl-x86_64.so.1 . We have to adjust this to 
+# reflect the filesystem layout of the target system which is  
+# /system/lib/ld-musl-x86_64.so.1 . This will be reached by creating a 
+# modified  specs  file in the proper location:
+/_tools/bin/x86_64-linux-musl-gcc -dumpspecs | sed 's/\/lib\/ld-musl/\/system\/lib\/ld-musl/g' > /_tools/lib/gcc/x86_64-linux-musl/12.2.0/specs
+
+# Test the _tools toolchain:
+cd $RPTX
+printf "#include <stdio.h>\nint main(){}\n" > dummy.c
+$LFS_TGT-gcc dummy.c
+readelf -l a.out | grep ld
+
+# Should output:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+# If matching, clean up:
+rm -rf a.out dummy.c
+
+# For future reference, copy log from mussel
+cp -v $RPTX/sources/mussel/log.txt /system/log/mussel_build.log

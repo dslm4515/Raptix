@@ -1,0 +1,72 @@
+# Set the path to the Raptix root filesystem:
+RPTX=/mnt/rptx
+
+# Then as root, mount partition at $RPTX or create directory $RPTX
+mkdir -pv $RPTX
+
+# As root, add rptx user:
+groupadd rptx
+useradd -s /bin/bash -g rptx -m -k /dev/null rptx
+passwd rptx
+
+# As root, grant rptx full access to all the directories under $RPTX by making rptx the owner:
+chown -v rptx $RPTX $RPTX/sources
+
+# As root, allow rptx user to use sudo:
+usermod -a -G sudo rptx
+
+# Start a shell running as user rptx
+su - rptx
+
+# Set up a good working environment:
+cat > ~/.bash_profile << "EOF"
+exec env -i HOME=$HOME TERM=$TERM PS1='\u:\w\n\$ ' /bin/bash
+EOF
+
+cat > ~/.bashrc << "EOF"
+set +h
+umask 022
+RPTX=/mnt/rptx
+LC_ALL=POSIX
+LFS_TGT=$(uname -m)-linux-musl
+PATH=/usr/bin
+# add /bin to the path if it's not a symlink
+if [ ! -L /bin ]; then PATH=$PATH:/bin; fi
+PATH=$RPTX/_tools/bin:/system/bin:/apps/bin:$PATH
+export LFS LC_ALL LFS_TGT PATH
+
+# Build flags for documentation:
+export  HELPFLAGS="--mandir=/help/man "
+export HELPFLAGS+="--infodir=/help/info "
+
+# Build flags for system software (/system)
+export  SYSFLAGS="--prefix=/system "
+export SYSFLAGS+="--bindir=/system/bin "
+export SYSFLAGS+="--sbindir=/system/bin "
+export SYSFLAGS+="--libexecdir=/system/exec "
+export SYSFLAGS+="--libdir=/system/lib "
+export SYSFLAGS+="--includedir=/apps/inc "
+export SYSFLAGS+="--datarootdir=/system/data "
+export SYSFLAGS+="--sysconfdir=/system/etc "
+export SYSFLAGS+="--localstatedir=/var "
+
+# Build flags for non-system software (/apps) or
+# software not required for boot
+export  APPFLAGS="--prefix=/apps "
+export APPFLAGS+="--bindir=/apps/bin "
+export APPFLAGS+="--sbindir=/apps/bin "
+export APPFLAGS+="--libexecdir=/apps/exec "
+export APPFLAGS+="--libdir=/apps/lib "
+export APPFLAGS+="--includedir=/apps/inc "
+export APPFLAGS+="--datarootdir=/apps/data "
+export APPFLAGS+="--sysconfdir=/apps/etc "
+export APPFLAGS+="--localstatedir=/var "
+EOF
+
+# Apply the files above:
+source ~/.bash_profile
+
+# Download the sources... once I add a list of URLs
+# cd $RTPX/sources
+# mkdir pkgs && cd pkgs
+# wget -i sources.list
