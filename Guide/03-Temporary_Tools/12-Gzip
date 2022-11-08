@@ -1,0 +1,9 @@
+# Build Gzip
+
+cd $RPTX/sources
+tar xf gzip-1.12.tar.xz && cd gzip-1.12
+
+./configure --host=$LFS_TGT \
+            $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/gzip-1.12
+make && make install

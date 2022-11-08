@@ -1,0 +1,86 @@
+# Changing Ownership:
+# Exit shell for rptx user. Login as root
+exit
+su - root
+
+# establish the $RPTX
+export $RPTX=/mnt/rptx
+
+# Change the ownership of the $RTPX/{apps,system,...}  
+# directories to user root by running the following command:
+chown -R root:root  $RPTX/{apps,help,log,sources,system,tmp,_tools,var}
+mkdir -pv  $RPTX/home/root
+
+# Fix permissions for $RPTX/tmp
+chmod -v a+rwx $RPTX/tmp
+
+# Creating directories onto which the kernel file systems will be mounted:
+mkdir -pv $RPTX/system/{dev,proc,sys,run}
+
+# Create Initial Device Nodes
+mknod -m 600 $RPTX/system/dev/console c 5 1
+mknod -m 666 $RPTX/system/dev/null    c 1 3
+
+# Create the /system/etc/password  and  /system/etc/group for the “chroot” environment.
+cat  > $RPTX/system/etc/passwd << "EOF"
+root:x:0:0:root:/home/root:/apps/bin/bash
+daemon:x:6:6:Daemon User:/system/dev/null:/apps/bin/false
+messagebus:x:18:18:D-Bus Message Daemon User:/system/run/dbus:/apps/bin/false
+uuidd:x:80:80:UUID Generation Daemon User:/system/dev/null:/apps/bin/false
+nobody:x:99:99:Unprivileged User:/system/dev/null:/apps/bin/false
+EOF
+
+cat > $RPTX/system/etc/group << "EOF"
+root:x:0:
+sys:x:2:
+kmem:x:3:
+tape:x:4:
+tty:x:5:
+daemon:x:6:
+floppy:x:7:
+disk:x:8:
+lp:x:9:
+dialout:x:10:
+audio:x:11:
+video:x:12:
+utmp:x:13:
+usb:x:14:
+cdrom:x:15:
+adm:x:16:
+messagebus:x:18:
+input:x:24:
+mail:x:34:
+kvm:x:61:
+uuidd:x:80:
+wheel:x:97:
+nogroup:x:99:
+users:x:999:
+EOF
+
+
+# Adjustment of the Shebang in scripts in /system/bin
+cat > $RPTX/system/bin/rshebang << EOF
+cd \$RPTX/system/bin
+
+for f in \`ls -R\` ; do
+  head -1 \$f | grep '#!' &>/dev/null && sed -i "s/^#\!.*$/#\!\/system\/bin\/sh/" \$f
+done
+EOF
+chmod -v 755 $RPTX/system/bin/rshebang
+
+# Run script to convert:
+cd $RPTX/system/bin
+./rshebang
+
+# Check:
+head -1 $RPTX/system/bin/znew
+
+# Should output:
+#!/system/bin/sh
+
+# Create a useful script in absence of Which:
+cat > $RPTX/system/bin/which << "EOF"
+#!/system/bin/sh
+type -pa "$@" | head -n 1 ; exit ${PIPESTATUS[0]}
+EOF
+chmod -v 755 $RPTX/system/bin/which

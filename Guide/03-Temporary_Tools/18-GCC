@@ -1,0 +1,109 @@
+# Build GCC
+
+cd $RPTX/sources
+tar xf gcc-12.2.0.tar.xz && cd gcc-12.2.0
+
+# Extract the mpfr, mpc and gmp packages into the source tree
+tar -xf ../mpfr-4.1.0.tar.xz
+mv -v mpfr-4.1.0 mpfr
+tar -xf ../gmp-6.2.1.tar.xz
+mv -v gmp-6.2.1 gmp
+tar -xf ../mpc-1.2.1.tar.gz
+mv -v mpc-1.2.1 mpc
+
+
+# use patch from mussel:
+patch -Np0 -i ../mussel/patches/gcc/glaucus/0001-pure64-for-x86-64.patch
+
+# change the location of GCC's default dynamic linker to use the one installed in /system.
+for file in gcc/config/{linux,i386/linux{,64}}.h
+do
+  cp -uv $file{,.orig}
+  sed -e 's@/lib\(64\)\?\(32\)\?/ld@/system&@g' \
+      -e 's@/usr@/system@g' $file.orig > $file
+  echo '
+#undef STANDARD_STARTFILE_PREFIX_1
+#undef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_1 "/system/lib/"
+#define STANDARD_STARTFILE_PREFIX_2 ""' >> $file
+  touch $file.orig
+done
+
+# Override the building rule of libgcc and libstdc++ headers, to allow building these
+# libraries with POSIX threads support:
+sed '/thread_header =/s/@.*@/gthr-posix.h/' \
+    -i libgcc/Makefile.in libstdc++-v3/include/Makefile.in
+
+# Build in dedicated directory
+mkdir -v build && cd build
+../configure --build=$(../config.guess) --host=$LFS_TGT \
+             CC_FOR_TARGET=$LFS_TGT-gcc CXX_FOR_TARGET=$LFS_TGT-g++ LDFLAGS_FOR_TARGET=-L$PWD/$LFS_TGT/libgcc \
+             --with-tune=generic \
+             --with-arch=x86-64 --enable-languages=c,c++ --disable-bootstrap \
+             --enable-initfini-array --disable-multilib --disable-libsanitizer \
+             --disable-werror $APPFLAGS $HELPFLAGS --docdir=/help/gcc-12.2.0
+make all-gcc all-target-libgcc
+
+# Check that dynamic loader is set:
+readelf -l gcc/cc1 | grep ld
+
+# Should output:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+
+# If correct, install it:
+make install-gcc
+
+# Build and install libgcc
+make -C $LFS_TGT/libgcc distclean
+make enable-shared=yes all-target-libgcc
+make install-target-libgcc
+
+# Build and install libstdc++-v3 for c++ support
+make all-target-libstdc++-v3
+make install-target-libstdc++-v3
+
+# Optionally build OpenMP support (libgomp):
+make all-target-libgomp
+make install-target-libgomp
+
+# Verify that all works like expected:
+printf "#include <stdio.h>\nint main(){}\n" > dummy.c
+/apps/bin/gcc  dummy.c
+
+# Check for the correct dynamic loader:
+readelf -l a.out | grep ld
+
+# Should be:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+
+# Execute the  a.out   file:
+./a.out
+
+# There should be no output as well no error.
+# Do the same for c++. First create a c++ testfile:
+cat > dummy.cpp << "EOF"
+#include<iostream>
+int main(int argc, char** argv) {
+  using namespace std;
+  int ret = 0;
+  return ret;
+}
+EOF
+
+g++ dummy.cpp -o cpp.out
+
+# Check for the correct dynamic loader:
+readelf -l cpp.out | grep ld
+
+# Should be:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+
+# Execute the  cpp.out   file:
+./cpp.out
+
+# There should be no output as well no error.
+
+# Clean up
+rm -v a.out cpp.out dummy.c dummy.cpp
+
+

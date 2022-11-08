@@ -1,0 +1,8 @@
+# Build Sed
+
+cd $RPTX/sources
+tar xf sed-4.8.tar.xz && cd sed-4.8
+
+./configure --host=$LFS_TGT $SYSFLAGS \
+            $HELPFLAGS --docdir=/help/doc/sed-4.8
+make && make install

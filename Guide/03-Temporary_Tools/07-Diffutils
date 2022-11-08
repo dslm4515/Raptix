@@ -1,0 +1,8 @@
+# Build Diffutils
+
+tar xf diffutils-3.8.tar.xz && cd diffutils-3.8
+./configure --host=$LFS_TGT \
+            $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/diffutils-3.8
+
+make && make install

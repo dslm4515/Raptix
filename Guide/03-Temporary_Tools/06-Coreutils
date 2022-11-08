@@ -1,0 +1,10 @@
+# Build coreutils
+
+cd $RPTX/sources
+tar xf coreutils-9.1.tar.xz && cd coreutils-9.1
+./configure --build=$(build-aux/config.guess) \
+            --host=$LFS_TGT \
+            --enable-install-program=hostname \
+            --enable-no-install-program=kill,uptime \
+            $SYSFLAGS $HELPFLAGS --docdir=/help/doc/coreutils-9.1
+make && make install

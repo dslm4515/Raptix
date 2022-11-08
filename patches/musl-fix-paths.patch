@@ -1,0 +1,490 @@
+diff -uNr musl-1.2.3.orig/configure musl-1.2.3/configure
+--- musl-1.2.3.orig/configure	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/configure	2022-11-06 00:40:09.348529765 -0500
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/system/bin/sh
+ 
+ usage () {
+ cat <<EOF
+@@ -53,7 +53,7 @@
+ # Helper functions
+ 
+ quote () {
+-tr '\n' ' ' <<EOF | grep '^[-[:alnum:]_=,./:]* $' >/dev/null 2>&1 && { echo "$1" ; return 0 ; }
++tr '\n' ' ' <<EOF | grep '^[-[:alnum:]_=,./:]* $' >/system/dev/null 2>&1 && { echo "$1" ; return 0 ; }
+ $1
+ EOF
+ printf %s\\n "$1" | sed -e "s/'/'\\\\''/g" -e "1s/^/'/" -e "\$s/\$/'/" -e "s#^'\([-[:alnum:]_,./:]*\)=\(.*\)\$#\1='\2#"
+@@ -61,7 +61,7 @@
+ echo () { printf "%s\n" "$*" ; }
+ fail () { echo "$*" ; exit 1 ; }
+ fnmatch () { eval "case \"\$2\" in $1) return 0 ;; *) return 1 ;; esac" ; }
+-cmdexists () { type "$1" >/dev/null 2>&1 ; }
++cmdexists () { type "$1" >/system/dev/null 2>&1 ; }
+ trycc () { test -z "$CC" && cmdexists "$1" && CC=$1 ; }
+ 
+ stripdir () {
+@@ -74,7 +74,7 @@
+ echo "#if $1" >> "$tmpc"
+ echo "#error yes" >> "$tmpc"
+ echo "#endif" >> "$tmpc"
+-if $CC $2 -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++if $CC $2 -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "false\n"
+ return 1
+ else
+@@ -86,7 +86,7 @@
+ tryflag () {
+ printf "checking whether compiler accepts %s... " "$2"
+ echo "typedef int x;" > "$tmpc"
+-if $CC $CFLAGS_TRY $2 -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++if $CC $CFLAGS_TRY $2 -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "yes\n"
+ eval "$1=\"\${$1} \$2\""
+ eval "$1=\${$1# }"
+@@ -100,7 +100,7 @@
+ tryldflag () {
+ printf "checking whether linker accepts %s... " "$2"
+ echo "typedef int x;" > "$tmpc"
+-if $CC $LDFLAGS_TRY -nostdlib -shared "$2" -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++if $CC $LDFLAGS_TRY -nostdlib -shared "$2" -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "yes\n"
+ eval "$1=\"\${$1} \$2\""
+ eval "$1=\${$1# }"
+@@ -213,7 +213,7 @@
+ set -C
+ while : ; do i=$(($i+1))
+ tmpc="./conf$$-$PPID-$i.c"
+-2>|/dev/null > "$tmpc" && break
++2>|/system/dev/null > "$tmpc" && break
+ test "$i" -gt 50 && fail "$0: cannot create temporary file $tmpc"
+ done
+ set +C
+@@ -246,7 +246,7 @@
+ 
+ printf "checking whether C compiler works... "
+ echo "typedef int x;" > "$tmpc"
+-if output=$($CC $CPPFLAGS $CFLAGS -c -o /dev/null "$tmpc" 2>&1) ; then
++if output=$($CC $CPPFLAGS $CFLAGS -c -o /system/dev/null "$tmpc" 2>&1) ; then
+ printf "yes\n"
+ else
+ printf "no; compiler output follows:\n%s\n" "$output"
+@@ -285,7 +285,7 @@
+ echo "#error no" >> "$tmpc"
+ echo "#endif" >> "$tmpc"
+ printf "checking for toolchain wrapper to build... "
+-if test "$wrapper" = auto && ! $CC -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++if test "$wrapper" = auto && ! $CC -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ echo "none"
+ elif test "$cc_family" = gcc ; then
+ gcc_wrapper=yes
+@@ -313,7 +313,7 @@
+ # Find the target architecture
+ #
+ printf "checking target system type... "
+-test -n "$target" || target=$($CC -dumpmachine 2>/dev/null) || target=unknown
++test -n "$target" || target=$($CC -dumpmachine 2>/system/dev/null) || target=unknown
+ printf "%s\n" "$target"
+ 
+ #
+@@ -367,7 +367,7 @@
+ x;
+ EOF
+ if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS \
+-  -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++  -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "no\n"
+ else
+ printf "yes\n"
+@@ -410,7 +410,7 @@
+ printf "checking whether we should preprocess assembly to add debugging information... "
+ if fnmatch '-g*|*\ -g*' "$CFLAGS_AUTO $CFLAGS" &&
+    test -f "$srcdir/tools/add-cfi.$ARCH.awk" &&
+-   printf ".file 1 \"srcfile.s\"\n.line 1\n.cfi_startproc\n.cfi_endproc" | $CC -g -x assembler -c -o /dev/null 2>/dev/null -
++   printf ".file 1 \"srcfile.s\"\n.line 1\n.cfi_startproc\n.cfi_endproc" | $CC -g -x assembler -c -o /system/dev/null 2>/system/dev/null -
+ then
+   ADD_CFI=yes
+ else
+@@ -594,9 +594,9 @@
+ # Find compiler runtime library
+ test -z "$LIBCC" && tryldflag LIBCC -lgcc && tryldflag LIBCC -lgcc_eh
+ test -z "$LIBCC" && tryldflag LIBCC -lcompiler_rt
+-test -z "$LIBCC" && try_libcc=`$CC -print-libgcc-file-name 2>/dev/null` \
++test -z "$LIBCC" && try_libcc=`$CC -print-libgcc-file-name 2>/system/dev/null` \
+                  && tryldflag LIBCC "$try_libcc"
+-test -z "$LIBCC" && try_libcc=`$CC -print-file-name=libpcc.a 2>/dev/null` \
++test -z "$LIBCC" && try_libcc=`$CC -print-file-name=libpcc.a 2>/system/dev/null` \
+                  && tryldflag LIBCC "$try_libcc"
+ printf "using compiler runtime libraries: %s\n" "$LIBCC"
+ 
+@@ -610,7 +610,7 @@
+ int foo(int x) { __asm__ ( "" : "+b"(x) ); return x; }
+ EOF
+ if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS -fPIC \
+-  -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++  -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "yes\n"
+ else
+ printf "no\n"
+@@ -636,7 +636,7 @@
+ if test "$cc_family" = clang ; then
+ printf "checking whether clang's vfp asm constraints work... "
+ echo 'float f(float x) { __asm__("":"+t"(x)); return x; }' > "$tmpc"
+-if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "yes\n"
+ else
+ printf "no\n"
+@@ -674,7 +674,7 @@
+ trycppif "_SOFT_FLOAT || __NO_FPRS__" "$t" && SUBARCH=${SUBARCH}-sf
+ printf "checking whether compiler can use 'd' constraint in asm... "
+ echo 'double f(double x) { __asm__ ("fabs %0, %1" : "=d"(x) : "d"(x)); return x; }' > "$tmpc"
+-if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "yes\n"
+ else
+ printf "no\n"
+@@ -706,7 +706,7 @@
+ # supports single precision. Reject them.
+ printf "checking whether compiler's double type is IEEE double... "
+ echo 'typedef char dblcheck[(int)sizeof(double)-5];' > "$tmpc"
+-if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++if $CC $CFLAGS_C99FSE $CPPFLAGS $CFLAGS -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "yes\n"
+ else
+ printf "no\n"
+@@ -742,7 +742,7 @@
+ echo 'typedef char ldcheck[(C(53,8)||C(64,12)||C(64,16)||C(113,16))*2-1];' >> "$tmpc"
+ if $CC $CFLAGS_C99FSE \
+   -I$srcdir/arch/$ARCH -I$srcdir/arch/generic -I$srcdir/include \
+-  $CPPFLAGS $CFLAGS -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
++  $CPPFLAGS $CFLAGS -c -o /system/dev/null "$tmpc" >/system/dev/null 2>&1 ; then
+ printf "yes\n"
+ else
+ printf "no\n"
+diff -uNr musl-1.2.3.orig/include/paths.h musl-1.2.3/include/paths.h
+--- musl-1.2.3.orig/include/paths.h	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/include/paths.h	2022-11-06 00:41:09.897530723 -0500
+@@ -1,28 +1,28 @@
+ #ifndef _PATHS_H
+ #define _PATHS_H
+ 
+-#define	_PATH_DEFPATH "/usr/local/bin:/bin:/usr/bin"
+-#define	_PATH_STDPATH "/bin:/usr/bin:/sbin:/usr/sbin"
++#define	_PATH_DEFPATH "/system/bin:/apps/bin"
++#define	_PATH_STDPATH "/system/bin:/apps/bin"
+ 
+-#define	_PATH_BSHELL	"/bin/sh"
+-#define	_PATH_CONSOLE	"/dev/console"
+-#define	_PATH_DEVNULL	"/dev/null"
+-#define	_PATH_KLOG	"/proc/kmsg"
++#define	_PATH_BSHELL	"/system/bin/sh"
++#define	_PATH_CONSOLE	"/system/dev/console"
++#define	_PATH_DEVNULL	"/system/dev/null"
++#define	_PATH_KLOG	"/system/proc/kmsg"
+ #define	_PATH_LASTLOG	"/var/log/lastlog"
+ #define	_PATH_MAILDIR	"/var/mail"
+-#define	_PATH_MAN	"/usr/share/man"
+-#define	_PATH_MNTTAB	"/etc/fstab"
+-#define	_PATH_MOUNTED	"/etc/mtab"
+-#define	_PATH_NOLOGIN	"/etc/nologin"
+-#define	_PATH_SENDMAIL	"/usr/sbin/sendmail"
+-#define	_PATH_SHADOW	"/etc/shadow"
+-#define	_PATH_SHELLS	"/etc/shells"
+-#define	_PATH_TTY	"/dev/tty"
+-#define _PATH_UTMP	"/dev/null/utmp"
++#define	_PATH_MAN	"/help/man"
++#define	_PATH_MNTTAB	"/system/etc/fstab"
++#define	_PATH_MOUNTED	"/system/etc/mtab"
++#define	_PATH_NOLOGIN	"/system/etc/nologin"
++#define	_PATH_SENDMAIL	"/apps/bin/sendmail"
++#define	_PATH_SHADOW	"/system/etc/shadow"
++#define	_PATH_SHELLS	"/system/etc/shells"
++#define	_PATH_TTY	"/system/dev/tty"
++#define _PATH_UTMP	"/system/run/utmps/utmp"
+ #define	_PATH_VI	"/usr/bin/vi"
+-#define _PATH_WTMP	"/dev/null/wtmp"
++#define _PATH_WTMP	"/var/log/wtmp"
+ 
+-#define	_PATH_DEV	"/dev/"
++#define	_PATH_DEV	"/system/dev/"
+ #define	_PATH_TMP	"/tmp/"
+ #define	_PATH_VARDB	"/var/lib/misc/"
+ #define	_PATH_VARRUN	"/var/run/"
+diff -uNr musl-1.2.3.orig/include/sys/mtio.h musl-1.2.3/include/sys/mtio.h
+--- musl-1.2.3.orig/include/sys/mtio.h	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/include/sys/mtio.h	2022-11-06 00:40:09.349529765 -0500
+@@ -182,7 +182,7 @@
+ #define MT_ST_DEF_DRVBUFFER	(MT_ST_DEF_OPTIONS | 0x300000)
+ #define MT_ST_HPLOADER_OFFSET 10000
+ #ifndef DEFTAPE
+-# define DEFTAPE	"/dev/tape"
++# define DEFTAPE	"/system/dev/tape"
+ #endif
+ 
+ #endif
+diff -uNr musl-1.2.3.orig/include/syslog.h musl-1.2.3/include/syslog.h
+--- musl-1.2.3.orig/include/syslog.h	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/include/syslog.h	2022-11-06 00:40:09.348529765 -0500
+@@ -62,7 +62,7 @@
+ void syslog (int, const char *, ...);
+ 
+ #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
+-#define _PATH_LOG "/dev/log"
++#define _PATH_LOG "/system/dev/log"
+ #define __NEED_va_list
+ #include <bits/alltypes.h>
+ void vsyslog (int, const char *, va_list);
+diff -uNr musl-1.2.3.orig/include/utmp.h musl-1.2.3/include/utmp.h
+--- musl-1.2.3.orig/include/utmp.h	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/include/utmp.h	2022-11-06 00:41:48.526531335 -0500
+@@ -37,8 +37,8 @@
+ 
+ int login_tty(int);
+ 
+-#define _PATH_UTMP "/dev/null/utmp"
+-#define _PATH_WTMP "/dev/null/wtmp"
++#define _PATH_UTMP "/system/run/utmps/utmp"
++#define _PATH_WTMP "/var/log/wtmp"
+ 
+ #define UTMP_FILE _PATH_UTMP
+ #define WTMP_FILE _PATH_WTMP
+diff -uNr musl-1.2.3.orig/src/env/__libc_start_main.c musl-1.2.3/src/env/__libc_start_main.c
+--- musl-1.2.3.orig/src/env/__libc_start_main.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/env/__libc_start_main.c	2022-11-06 00:40:09.352529765 -0500
+@@ -51,7 +51,7 @@
+ #endif
+ 	if (r<0) a_crash();
+ 	for (i=0; i<3; i++) if (pfd[i].revents&POLLNVAL)
+-		if (__sys_open("/dev/null", O_RDWR)<0)
++		if (__sys_open("/system/dev/null", O_RDWR)<0)
+ 			a_crash();
+ 	libc.secure = 1;
+ }
+diff -uNr musl-1.2.3.orig/src/legacy/daemon.c musl-1.2.3/src/legacy/daemon.c
+--- musl-1.2.3.orig/src/legacy/daemon.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/legacy/daemon.c	2022-11-06 00:40:09.352529765 -0500
+@@ -8,7 +8,7 @@
+ 		return -1;
+ 	if (!noclose) {
+ 		int fd, failed = 0;
+-		if ((fd = open("/dev/null", O_RDWR)) < 0) return -1;
++		if ((fd = open("/system/dev/null", O_RDWR)) < 0) return -1;
+ 		if (dup2(fd, 0) < 0 || dup2(fd, 1) < 0 || dup2(fd, 2) < 0)
+ 			failed++;
+ 		if (fd > 2) close(fd);
+diff -uNr musl-1.2.3.orig/src/legacy/getpass.c musl-1.2.3/src/legacy/getpass.c
+--- musl-1.2.3.orig/src/legacy/getpass.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/legacy/getpass.c	2022-11-06 00:40:09.352529765 -0500
+@@ -12,7 +12,7 @@
+ 	ssize_t l;
+ 	static char password[128];
+ 
+-	if ((fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0) return 0;
++	if ((fd = open("/system/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0) return 0;
+ 
+ 	tcgetattr(fd, &t);
+ 	s = t;
+diff -uNr musl-1.2.3.orig/src/legacy/getusershell.c musl-1.2.3/src/legacy/getusershell.c
+--- musl-1.2.3.orig/src/legacy/getusershell.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/legacy/getusershell.c	2022-11-06 00:39:54.752529533 -0500
+@@ -2,7 +2,7 @@
+ #include <stdio.h>
+ #include <unistd.h>
+ 
+-static const char defshells[] = "/bin/sh\n/bin/csh\n";
++static const char defshells[] = "/system/bin/sh\n/bin/csh\n";
+ 
+ static char *line;
+ static size_t linesize;
+diff -uNr musl-1.2.3.orig/src/misc/fmtmsg.c musl-1.2.3/src/misc/fmtmsg.c
+--- musl-1.2.3.orig/src/misc/fmtmsg.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/misc/fmtmsg.c	2022-11-06 00:40:09.350529765 -0500
+@@ -39,7 +39,7 @@
+ 	else if (severity == MM_INFO) errstring = "INFO: ";
+ 
+ 	if (classification & MM_CONSOLE) {
+-		consolefd = open("/dev/console", O_WRONLY);
++		consolefd = open("/system/dev/console", O_WRONLY);
+ 		if (consolefd < 0) {
+ 			ret = MM_NOCON;
+ 		} else {
+diff -uNr musl-1.2.3.orig/src/misc/openpty.c musl-1.2.3/src/misc/openpty.c
+--- musl-1.2.3.orig/src/misc/openpty.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/misc/openpty.c	2022-11-06 00:40:09.351529765 -0500
+@@ -12,7 +12,7 @@
+ 	int m, s, n=0, cs;
+ 	char buf[20];
+ 
+-	m = open("/dev/ptmx", O_RDWR|O_NOCTTY);
++	m = open("/system/dev/ptmx", O_RDWR|O_NOCTTY);
+ 	if (m < 0) return -1;
+ 
+ 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cs);
+@@ -21,7 +21,7 @@
+ 		goto fail;
+ 
+ 	if (!name) name = buf;
+-	snprintf(name, sizeof buf, "/dev/pts/%d", n);
++	snprintf(name, sizeof buf, "/system/dev/pts/%d", n);
+ 	if ((s = open(name, O_RDWR|O_NOCTTY)) < 0)
+ 		goto fail;
+ 
+diff -uNr musl-1.2.3.orig/src/misc/pty.c musl-1.2.3/src/misc/pty.c
+--- musl-1.2.3.orig/src/misc/pty.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/misc/pty.c	2022-11-06 00:40:09.350529765 -0500
+@@ -7,7 +7,7 @@
+ 
+ int posix_openpt(int flags)
+ {
+-	int r = open("/dev/ptmx", flags);
++	int r = open("/system/dev/ptmx", flags);
+ 	if (r < 0 && errno == ENOSPC) errno = EAGAIN;
+ 	return r;
+ }
+@@ -28,7 +28,7 @@
+ 	int pty, err;
+ 	if (!buf) len = 0;
+ 	if ((err = __syscall(SYS_ioctl, fd, TIOCGPTN, &pty))) return -err;
+-	if (snprintf(buf, len, "/dev/pts/%d", pty) >= len) return ERANGE;
++	if (snprintf(buf, len, "/system/dev/pts/%d", pty) >= len) return ERANGE;
+ 	return 0;
+ }
+ 
+diff -uNr musl-1.2.3.orig/src/misc/syslog.c musl-1.2.3/src/misc/syslog.c
+--- musl-1.2.3.orig/src/misc/syslog.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/misc/syslog.c	2022-11-06 00:40:09.351529765 -0500
+@@ -34,7 +34,7 @@
+ 	char sun_path[9];
+ } log_addr = {
+ 	AF_UNIX,
+-	"/dev/log"
++	"/system/dev/log"
+ };
+ 
+ void closelog(void)
+@@ -114,7 +114,7 @@
+ 		    || connect(log_fd, (void *)&log_addr, sizeof log_addr) < 0
+ 		    || send(log_fd, buf, l, 0) < 0)
+ 		    && (log_opt & LOG_CONS)) {
+-			fd = open("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
++			fd = open("/system/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+ 			if (fd >= 0) {
+ 				dprintf(fd, "%.*s", l-hlen, buf+hlen);
+ 				close(fd);
+diff -uNr musl-1.2.3.orig/src/misc/wordexp.c musl-1.2.3/src/misc/wordexp.c
+--- musl-1.2.3.orig/src/misc/wordexp.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/misc/wordexp.c	2022-11-06 00:40:09.351529765 -0500
+@@ -29,7 +29,7 @@
+ 	int sq=0, dq=0;
+ 	size_t np=0;
+ 	char *w, **tmp;
+-	char *redir = (flags & WRDE_SHOWERR) ? "" : "2>/dev/null";
++	char *redir = (flags & WRDE_SHOWERR) ? "" : "2>/system/dev/null";
+ 	int err = 0;
+ 	FILE *f;
+ 	size_t wc = 0;
+@@ -108,7 +108,7 @@
+ 	if (!pid) {
+ 		if (p[1] == 1) fcntl(1, F_SETFD, 0);
+ 		else dup2(p[1], 1);
+-		execl("/bin/sh", "sh", "-c",
++		execl("/system/bin/sh", "sh", "-c",
+ 			"eval \"printf %s\\\\\\\\0 x $1 $2\"",
+ 			"sh", s, redir, (char *)0);
+ 		_exit(1);
+diff -uNr musl-1.2.3.orig/src/mman/shm_open.c musl-1.2.3/src/mman/shm_open.c
+--- musl-1.2.3.orig/src/mman/shm_open.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/mman/shm_open.c	2022-11-06 00:40:09.353529765 -0500
+@@ -19,7 +19,7 @@
+ 		errno = ENAMETOOLONG;
+ 		return 0;
+ 	}
+-	memcpy(buf, "/dev/shm/", 9);
++	memcpy(buf, "/system/dev/shm/", 9);
+ 	memcpy(buf+9, name, p-name+1);
+ 	return buf;
+ }
+diff -uNr musl-1.2.3.orig/src/passwd/nscd_query.c musl-1.2.3/src/passwd/nscd_query.c
+--- musl-1.2.3.orig/src/passwd/nscd_query.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/passwd/nscd_query.c	2022-11-06 00:40:09.353529765 -0500
+@@ -42,7 +42,7 @@
+ 	fd = socket(PF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+ 	if (fd < 0) {
+ 		if (errno == EAFNOSUPPORT) {
+-			f = fopen("/dev/null", "re");
++			f = fopen("/system/dev/null", "re");
+ 			if (f)
+ 				errno = errno_save;
+ 			return f;
+diff -uNr musl-1.2.3.orig/src/process/system.c musl-1.2.3/src/process/system.c
+--- musl-1.2.3.orig/src/process/system.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/process/system.c	2022-11-06 00:39:56.061529554 -0500
+@@ -32,7 +32,7 @@
+ 	posix_spawnattr_setsigmask(&attr, &old);
+ 	posix_spawnattr_setsigdefault(&attr, &reset);
+ 	posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF|POSIX_SPAWN_SETSIGMASK);
+-	ret = posix_spawn(&pid, "/bin/sh", 0, &attr,
++	ret = posix_spawn(&pid, "/system/bin/sh", 0, &attr,
+ 		(char *[]){"sh", "-c", (char *)cmd, 0}, __environ);
+ 	posix_spawnattr_destroy(&attr);
+ 
+diff -uNr musl-1.2.3.orig/src/stdio/popen.c musl-1.2.3/src/stdio/popen.c
+--- musl-1.2.3.orig/src/stdio/popen.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/stdio/popen.c	2022-11-06 00:39:54.752529533 -0500
+@@ -38,7 +38,7 @@
+ 			if (l->pipe_pid && posix_spawn_file_actions_addclose(&fa, l->fd))
+ 				goto fail;
+ 		if (!posix_spawn_file_actions_adddup2(&fa, p[1-op], 1-op)) {
+-			if (!(e = posix_spawn(&pid, "/bin/sh", &fa, 0,
++			if (!(e = posix_spawn(&pid, "/system/bin/sh", &fa, 0,
+ 			    (char *[]){ "sh", "-c", (char *)cmd, 0 }, __environ))) {
+ 				posix_spawn_file_actions_destroy(&fa);
+ 				f->pipe_pid = pid;
+diff -uNr musl-1.2.3.orig/src/thread/sem_open.c musl-1.2.3/src/thread/sem_open.c
+--- musl-1.2.3.orig/src/thread/sem_open.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/thread/sem_open.c	2022-11-06 00:40:09.352529765 -0500
+@@ -115,7 +115,7 @@
+ 		/* Create a temp file with the new semaphore contents
+ 		 * and attempt to atomically link it as the new name */
+ 		clock_gettime(CLOCK_REALTIME, &ts);
+-		snprintf(tmp, sizeof(tmp), "/dev/shm/tmp-%d", (int)ts.tv_nsec);
++		snprintf(tmp, sizeof(tmp), "/system/dev/shm/tmp-%d", (int)ts.tv_nsec);
+ 		fd = open(tmp, O_CREAT|O_EXCL|FLAGS, mode);
+ 		if (fd < 0) {
+ 			if (errno == EEXIST) continue;
+diff -uNr musl-1.2.3.orig/src/unistd/ctermid.c musl-1.2.3/src/unistd/ctermid.c
+--- musl-1.2.3.orig/src/unistd/ctermid.c	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/src/unistd/ctermid.c	2022-11-06 00:40:09.350529765 -0500
+@@ -3,5 +3,5 @@
+ 
+ char *ctermid(char *s)
+ {
+-	return s ? strcpy(s, "/dev/tty") : "/dev/tty";
++	return s ? strcpy(s, "/system/dev/tty") : "/system/dev/tty";
+ }
+diff -uNr musl-1.2.3.orig/tools/install.sh musl-1.2.3/tools/install.sh
+--- musl-1.2.3.orig/tools/install.sh	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/tools/install.sh	2022-11-06 00:39:54.751529533 -0500
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/system/bin/sh
+ #
+ # This is an actually-safe install command which installs the new
+ # file atomically in the new location, rather than overwriting
+diff -uNr musl-1.2.3.orig/tools/version.sh musl-1.2.3/tools/version.sh
+--- musl-1.2.3.orig/tools/version.sh	2022-04-07 12:12:40.000000000 -0500
++++ musl-1.2.3/tools/version.sh	2022-11-06 00:40:10.295529780 -0500
+@@ -1,8 +1,8 @@
+-#!/bin/sh
++#!/system/bin/sh
+ 
+ if test -d .git ; then
+-if type git >/dev/null 2>&1 ; then
+-git describe --tags --match 'v[0-9]*' 2>/dev/null \
++if type git >/system/dev/null 2>&1 ; then
++git describe --tags --match 'v[0-9]*' 2>/system/dev/null \
+ | sed -e 's/^v//' -e 's/-/-git-/'
+ else
+ sed 's/$/-git/' < VERSION

@@ -1,0 +1,9 @@
+# Build Gawk
+
+cd $RPTX/sources
+tar xf gawk-5.2.0.tar.xz && cd gawk-5.2.0
+
+./configure --build=$(./config.guess) \
+            --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/gawk-5.2.0
+make && make install

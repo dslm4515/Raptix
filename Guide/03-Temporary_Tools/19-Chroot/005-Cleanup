@@ -1,0 +1,5 @@
+# Clean up temporary tools
+find /system/{lib,exec} -name \*.la -delete
+
+# The /_tools directory is no longer needed:
+rm -rf /_tools

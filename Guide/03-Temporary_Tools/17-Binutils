@@ -1,0 +1,37 @@
+# Build binutils
+
+cd $RPTX/sources
+tar xf binutils-2.39.tar.xz && cd binutils-2.39
+
+# Binutils ships an outdated libtool copy in the tarball.
+# It lacks sysroot support so the produced binaries will
+# be mistakenly linked to libraries from the host distro.
+# Workaround this issue:
+sed '6009s/$add_dir//' -i ltmain.sh
+
+# build in a dedicated directory
+mkdir -v build && cd build
+
+# Configure source
+../configure --build=$(../config.guess) \
+             --host=$LFS_TGT \
+             --disable-nls \
+             --enable-shared \
+             --disable-werror \
+             --enable-64-bit-bfd \
+             --with-lib-path=/system/lib \
+             --enable-gprofng=no \
+             $SYSFLAGS $HELPFLAGS --docdir=/help/doc/binutils-2.39
+
+# Fixed the tooldirs in the Makefile:
+# tooldir = /system
+# build_tooldir = /system
+
+# Compile & install
+make tooldir=/system && make tooldir=/system install -j1
+
+# Remove the libtool archive files because they are harmful
+# for cross compilation, and remove unnecessary static libraries:
+rm -v /system/lib/lib{bfd,ctf,ctf-nobfd,opcodes}.{a,la}
+
+

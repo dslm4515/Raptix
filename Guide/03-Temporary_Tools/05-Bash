@@ -1,0 +1,8 @@
+# Build Bash
+tar xf bash-5.2.tar.gz && cd bash-5.2
+./configure --build=$(support/config.guess) \
+            --host=$LFS_TGT \
+            --without-bash-malloc \
+            $APPFLAGS $HELPFLAGS \
+            --docdir=/help/doc/bash-5.2
+make && make install

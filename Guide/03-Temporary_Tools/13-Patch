@@ -1,0 +1,9 @@
+# Build Patch
+
+cd $RPTX/sources
+tar xf patch-2.7.6.tar.xz && cd patch-2.7.6
+
+./configure --build=$(build-aux/config.guess) \
+            --host=$LFS_TGT $APPFLAGS $HELPFLAGS \
+            --docdir=/help/doc/patch-2.7.6
+make && make install

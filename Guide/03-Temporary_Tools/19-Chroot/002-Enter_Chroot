@@ -1,0 +1,64 @@
+# Enter chroot as root:
+$RPTX/rptx_mount.sh $RPTX
+$RPTX/rptx_chroot.sh $RPTX
+
+# Create directories
+mkdir -pv /build /media /opt
+mkdir -pv /system/lib/firmware
+mkdir -pv /system/boot/sys
+mkdir -pv /system/efi
+mkdir -pv /var/log
+
+# Create symlinks
+ln -sfv /system/run      /var/run
+ln -sfv /system/run/lock /var/lock
+ln -sv /system/proc/self/mounts /system/etc/mtab
+ln -sv /system/etc /etc #........................... as bash won't remove the “I have no name!” prompt
+ln -sv /system/dev       /dev
+ln -sv apps              /usr
+ln -sv inc               /apps/include #............ gcc still check /usr/include
+
+
+chmod -v  1777 /tmp
+chmod -v  1777 /var/tmp
+
+touch /var/log/{btmp,lastlog,faillog,wtmp}
+
+chgrp -v utmp /var/log/lastlog
+chmod -v 664  /var/log/lastlog
+chmod -v 600  /var/log/btmp
+
+# Create a basic /etc/hosts file
+cat > /system/etc/hosts << EOF
+127.0.0.1  localhost RPTX
+::1        localhost
+EOF
+
+# Define build flags
+# Build flags for documentation:
+export  HELPFLAGS="--mandir=/help/man "
+export HELPFLAGS+="--infodir=/help/info "
+
+# Build flags for system software (/system)
+export  SYSFLAGS="--prefix=/system "
+export SYSFLAGS+="--bindir=/system/bin "
+export SYSFLAGS+="--sbindir=/system/bin "
+export SYSFLAGS+="--libexecdir=/system/exec "
+export SYSFLAGS+="--libdir=/system/lib "
+export SYSFLAGS+="--includedir=/apps/inc "
+export SYSFLAGS+="--datarootdir=/system/data "
+export SYSFLAGS+="--sysconfdir=/system/etc "
+export SYSFLAGS+="--localstatedir=/var "
+
+# Build flags for non-system software (/apps) or
+# software not required for boot
+export  APPFLAGS="--prefix=/apps "
+export APPFLAGS+="--bindir=/apps/bin "
+export APPFLAGS+="--sbindir=/apps/bin "
+export APPFLAGS+="--libexecdir=/apps/exec "
+export APPFLAGS+="--libdir=/apps/lib "
+export APPFLAGS+="--includedir=/apps/inc "
+export APPFLAGS+="--datarootdir=/apps/data "
+export APPFLAGS+="--sysconfdir=/apps/etc "
+export APPFLAGS+="--localstatedir=/var "
+

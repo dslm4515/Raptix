@@ -1,0 +1,10 @@
+# Build File
+
+tar xf file-5.43.tar.gz && cd file-5.43
+
+# Run the following command to install 'magic.mgc' directly in
+# /system/data  instead of  /system/data/misc :
+sed -i '/^pkgdatadir/s/\/misc//g' configure
+
+./configure --host=$LFS_TGT $SYSFLAGS $HELPFLAGS --docdir=/hrlp/doc/file-5.43
+make && make install

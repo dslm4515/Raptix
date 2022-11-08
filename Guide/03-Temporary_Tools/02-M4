@@ -1,0 +1,8 @@
+# Build M4
+cd $RPTX/sources
+tar xf m4-1.4.19.tar.xz && cd m4-1.4.19
+./configure --host=$LFS_TGT \
+            --build=$(build-aux/config.guess) \
+            $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/m4-1.4.19
+make && make install

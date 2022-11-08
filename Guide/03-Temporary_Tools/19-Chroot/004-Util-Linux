@@ -1,0 +1,10 @@
+# Chroot:  Util-Linux
+cd /sources
+tar xf util-linux-2.38.1.tar.xz && cd util-linux-2.38.1
+
+./configure $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/util-linux-2.38.1
+make && make install
+
+mv /system/sbin/* /system/bin/
+rm -rf /system/sbin

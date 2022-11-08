@@ -1,0 +1,19 @@
+# Build Dash
+cd $RPTX/sources
+tar xf dash-0.5.11.5.tar.gz && cd dash-0.5.11.5
+
+# Generate configure script with autotools
+./autogen.sh
+
+# Configure source
+./configure --build=$(support/config.guess) \
+            --host=$LFS_TGT \
+            $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/dash-0.5.11.5
+make && make install
+
+# Create needed symlinks to make dash the sh interepeter
+cd $RPTX
+ln -sv dash                  system/bin/sh
+ln -sv ../../system/bin/dash bin/sh
+

@@ -1,0 +1,34 @@
+# Chroot: Musl
+# Be sure to be in the chroot environment
+
+cd /sources
+tar xf musl-1.2.3.tar.gz && cd musl-1.2.3
+
+# Patch source to fix shebangs, paths, and references to /dev:
+patch -Np1 -i ../patches/musl-fix-paths.patch
+
+./configure --prefix=/system        \
+            --bindir=/system/bin    \
+            --includedir=/apps/inc  \
+            --syslibdir=/system/lib \
+            --libdir=/system/lib
+
+# fix shebang in Makefile
+sed -i 's!/bin/sh!/system/bin/sh!g' Makefile
+
+# Make fails to execute 3 commands. Just execute each one and run make again
+make
+sed -f ./tools/mkalltypes.sed ./arch/x86_64/bits/alltypes.h.in ./include/alltypes.h.in > obj/include/bits/alltypes.h
+make
+sed -n -e s/__NR_/SYS_/p < arch/x86_64/bits/syscall.h.in >> obj/include/bits/syscall.h
+make
+printf '#define VERSION "%s"\n' "$(cd .; sh tools/version.sh)" > obj/src/internal/version.h
+
+make install
+
+# Provide minimal libssp_nonshared.a so we don't need libssp from gcc
+gcc -fpie -c ../files/__stack_chk_fail_local.c -o __stack_chk_fail_local.o
+gcc-ar r libssp_nonshared.a __stack_chk_fail_local.o
+cp -v libssp_nonshared.a /system/lib/
+
+

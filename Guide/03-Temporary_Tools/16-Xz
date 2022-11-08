@@ -1,0 +1,10 @@
+# Build Xz-utils
+
+cd $RPTX/sources
+tar xf xz-5.2.7.tar.xz && cd xz-5.2.7
+
+./configure --build=$(build-aux/config.guess) \
+            --host=$LFS_TGT --disable-static \
+            $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/xz-5.27
+make && make install

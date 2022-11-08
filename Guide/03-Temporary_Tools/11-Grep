@@ -1,0 +1,8 @@
+# Build Grep
+
+cd $RPTX/sources
+tar xf grep-3.8.tar.xz && cd grep-3.8
+./configure --host=$LFS_TGT  \
+            $SYSFLAGS $HELPFLAGS \
+            --docdir=/help/doc/grep-3.8
+make && make install

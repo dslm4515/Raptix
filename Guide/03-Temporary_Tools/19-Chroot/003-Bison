@@ -1,0 +1,9 @@
+# Chroot: Build bison
+
+cd /sources
+tar xf bison-3.8.2.tar.xz && cd bison-3.8.2
+./configure $APPFLAGS $HELPFLAGS --docdir=/help/doc/bison-3.8.2
+make && make install
+
+# Fix the shebang of  yacc
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' /apps/bin/yacc

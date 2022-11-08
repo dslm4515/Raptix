@@ -1,0 +1,64 @@
+# Create a script to mount kernel filesystems prior to chroot-ing
+cat > $RPTX/rptx_mount.sh << "EOF"
+#! /bin/bash
+
+# Check if LFS was set
+if [ "$1" != "" ]; then
+    echo "[  ii  ] rootfs set at $1 " &&
+    export LFS=$1 &&
+    mount -v --bind /dev $LFS/system/dev &&
+    mount -vt devpts devpts $LFS/system/dev/pts -o gid=5,mode=620 &&
+    mount -vt proc proc $LFS/system/proc &&
+    mount -vt sysfs sysfs $LFS/system/sys &&
+    mount -vt tmpfs tmpfs $LFS/system/run &&
+    if [ -h $LFS/system/dev/shm ]; then
+        mkdir -pv $LFS/system/$(readlink $LFS/dev/shm)
+    fi
+    echo "[ DONE ] RPTX at $1 is mounted."
+else
+    echo "[ STOP ] RPTX not set. Please set. Usage: rptx_mount [path-to-rootfs] "
+fi
+EOF
+
+cat > $RPTX/rptx_chroot.sh << "EOF"
+#! /bin/bash
+
+# Check if LFS was set
+if [ "$1" != "" ]; then
+    echo "[  ii  ] Rootfs set at $1 " &&
+    echo "[  ii  ] Chroot-ing..." &&
+    export LFS=$1 &&
+    chroot "$LFS" /system/bin/env -i          \
+    HOME=/home/root TERM="screen"            \
+    PS1='(raptix chroot) \u:\w\n\$ '        \
+    PATH=/apps/bin:/system/bin \
+    CC=musl-gcc \
+    /apps/bin/bash --login &&
+    echo "[ DONE ] RPTX at $1 was chroot'ed. Exited chroot."
+else
+    echo "[ STOP ] RPTX not set. Please set. Usage: rptx_chroot.sh [path-to-rootfs] "
+fi
+EOF
+
+cat > $RPTX/rptx_umount.sh << "EOF"
+#! /bin/bash
+
+# Check if LFS was set
+if [ "$1" != "" ]; then
+    echo "[  ii  ] rootfs set at $1 " &&
+    export LFS=$1 &&
+    umount -v $LFS/system/dev/pts &&
+    umount -v $LFS/system/dev &&
+    umount -v $LFS/system/run &&
+    umount -v $LFS/system/proc &&
+    umount -v $LFS/system/sys &&
+    echo "[ DONE ] RPTX at $1 is unmounted."
+else
+    echo "[ STOP ] RPTX not set. Please set. Usage: rptx_umount [path-to-rootfs] "
+fi
+EOF
+
+chmod -v 755 $RPTX/rptx_mount.sh
+chmod -v 755 $RPTX/rptx_chroot.sh
+chmod -v 755 $RPTX/rptx_umount.sh
+
