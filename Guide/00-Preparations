@@ -32,7 +32,7 @@ LFS_TGT=$(uname -m)-linux-musl
 PATH=/usr/bin
 # add /bin to the path if it's not a symlink
 if [ ! -L /bin ]; then PATH=$PATH:/bin; fi
-PATH=$RPTX/_tools/bin:/system/bin:/apps/bin:$PATH
+PATH=/system/bin:/apps/bin:/$RPTX/_tools/bin:$PATH
 export LFS LC_ALL LFS_TGT PATH
 
 # Build flags for documentation:
