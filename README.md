@@ -44,7 +44,7 @@ The filesystem hierarchy used by Raptix is defined in /FHS of this repo.
 <li>Build mussel </li>
 <li>Use mussel to build enough software to chroot. </li>
 <li>Chroot and build the final system. </li>
-<ol>
+</ol>
 
 ## Requirements (to run mussel & build Raptix)
 The following software should be installed. The first 25 can be checked via `./check.sh` in the top-level of the mussel repo.
@@ -79,4 +79,4 @@ Listed versions are the minimum version per LFS-11.2.x ... otherwise, use the la
 <li>wget/cURL</li>
 <li>xz 5.0.0 </li>
 <li>zstd</li>
-<ul>
+</ul>
