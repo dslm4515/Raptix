@@ -1,0 +1,135 @@
+ PSUFFIX="x86_64-cosys.txz"
+NPSUFFIX="noarch-cosys.txz"
+COSYS=/mnt/cosys
+
+https://github.com/firasuke/mussel
+
+# ---------------As root: ------------------------------
+# mount partition at $COSYS or create directory $COSYS
+
+# Create directory to hold source:
+mkdir -v $COSYS/sources
+
+# Add cosys user:
+groupadd cosys
+useradd -s /bin/bash -g cosys -m -k /dev/null cosys
+passwd cosys
+
+# Grant cosys full access to all the directories under $COSYS by making cosys the owner:
+chown -v cosys $COSYS $COSYS/sources
+
+# Allow cosys user to use sudo:
+usermod -a -G sudo cosys
+
+# Start a shell running as user cosys
+su - cosys
+
+#------------As user cosys: -----------------------------
+# Set up a good working environment:
+cat > ~/.bash_profile << "EOF"
+exec env -i HOME=$HOME TERM=$TERM PS1='\u:\w\n\$ ' /bin/bash
+EOF
+
+cat > ~/.bashrc << "EOF"
+set +h
+umask 022
+COSYS=/mnt/cosys
+LC_ALL=POSIX
+LFS_TGT=$(uname -m)-linux-musl
+PATH=/usr/bin
+# add /bin to the path if it's not a symlink
+if [ ! -L /bin ]; then PATH=$PATH:/bin; fi
+PATH=$COSYS/_tools/bin:$PATH
+export LFS LC_ALL LFS_TGT PATH
+EOF
+
+# Apply the files above:
+source ~/.bash_profile
+
+# Download mussel to build a toolchain
+cd $COSYS/sources
+git clone https://github.com/firasuke/mussel
+
+# Make sure host has all requirements:
+cd mussel
+./check.sh
+
+# Modify ./mussel.sh to change these:
+# MPREFIX="/_tools"
+# MSYSROOT="/_tools"
+
+# Build toolchain:
+sudo ./mussel.sh x86_64 -l -o
+
+# AM4, 5600x, 6 core, 12 threads, 16GB 3200 MHz DDR2 SATA6-HDD
+# 5m52.859s
+
+# Move it to the $COSYS directory and create a symlink:
+sudo chown -R cosys /_tools
+sudo mv /_tools $COSYS/_tools
+sudo ln -s $COSYS/_tools /_tools
+
+# The new cross compiler has built-in specs which refer to the 
+# musl dynamic loader  /lib/ld-musl-x86_64.so.1 . We have to 
+# adjust this to reflect the filesystem layout of the target 
+# system which is  /slnx/lib/ld-musl-x86_64.so.1 . This will 
+# be reached by creating a modified  specs  file in the proper 
+# location:
+/_tools/bin/x86_64-linux-musl-gcc -dumpspecs | sed 's/\/lib\/ld-musl/\/slnx\/lib\/ld-musl/g' > /_tools/lib/gcc/x86_64-linux-musl/12.2.0/specs
+
+# Test the _tools toolchain:
+cd $COSYS
+printf "#include <stdio.h>\nint main(){}\n" > dummy.c
+$LFS_TGT-gcc dummy.c
+readelf -l a.out | grep ld
+
+# Should output:
+# [Requesting program interpreter: /slnx/lib/ld-musl-x86_64.so.1]
+# If matching, clean up:
+rm -rf a.out dummy.c
+
+# Create basic directory tree
+mkdir -v $COSYS/slnx
+mkdir -v $COSYS/exec
+
+# Create symlink to the COSYS directory tree
+sudo ln -sv $COSYS/slnx /slnx 
+sudo ln -sv $COSYS/exec /exec
+
+# Use the “fresh” header files “created” by  mussel.sh . It doesn't 
+# make any significant difference to extract and install them again. 
+# Copy the headers from the mussel toolchain:
+cp -vr /_tools/usr/include $COSYS/slnx/inc
+
+# Build musl libc
+cd $COSYS/sources
+tar xf musl-1.2.3.tar.gz && cd musl-1.2.3
+./configure --prefix=/slnx \
+            --bindir=/exec \
+            --includedir=/slnx/inc \
+            --syslibdir=/slnx/lib \
+            --target=$LFS_TGT
+
+# Install
+make install
+
+# NOTE: Locations
+# The temporary tools will be installed in the same locations like 
+# in the final system. To make sure they will be overwritten later on 
+# it is required to take care of these locations. From now on we have 
+# to keep special attention to this. Here is an overview of the 
+# related  configure  options:
+ --bindir=/exec                --> usually this is "${prefix}/bin"
+ --sbindir=/exec               --> a sbin directory is not required at all
+ --libexecdir=/libexec
+ --sysconfdir=/slnx/etc            --> usually this is "${prefix}/etc"
+ --libdir=/slnx/lib                --> usually this is "${prefix}/lib"
+ --datarootdir=/slnx/dat
+ --mandir=/man
+ --includedir=/slnx/inc
+ --runstatedir=/slnx/run
+ --localestatedir=/slnx/var
+ --docdir=/tmp
+ --infodir=/tmp
+
+############## halted build. I wanted to redesign the filesystem heirarchy #########

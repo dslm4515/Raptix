@@ -1,0 +1,817 @@
+Raptix -- An operating system running a Linux kernel
+
+Based on the "documentation"/"build-notes" on "qLinux/HorOS" at:
+https://qlinux.qware.org/doku.php/0verview
+
+Goals:
+o Can boot a system with just the /system directory. It should
+  be enough to boot the system and load a shell
+o /apps -- installed software not needed for boot
+o /opt  -- Auxillary/optional/alternative installed software
+o /build -- Directory for building software from source
+
+Issues:
+o /etc still expected by bash to resolve users
+o gcc still looks for headers in /usr/include and not /apps/inc
+o /dev still expected to be present instead of /system/dev
+o /apps/include used by gcc instead of /apps/inc
+o "unknown terminal type." when clearing terminal. /system/data/terminfo 
+  is a "NetBSD Constant Database" instead of a directory of terminal 
+  definition files
+o Musl libc wont compile in chroot. Make complains that "/bin/sh" does
+  not exist. Yet executing 'failing' commands execute fine... just not
+  by make.
+
+Enviroment Variables (When using a package system):
+ PSUFFIX="x86_64-raptix.txz"
+NPSUFFIX="noarch-raptix.txz"
+
+# Set this:
+RPTX=/mnt/rptx
+
+Important URLs:
+https://github.com/firasuke/mussel commit 7822b12529d9004ef56bc783c99d4c67c88f0280
+http://gondor.apana.org.au/~herbert/dash
+
+BEGIN!
+
+# ---------------As root: ------------------------------
+# mount partition at $RPTX or create directory $RPTX
+
+# Create directory to hold sources:
+mkdir -pv $RPTX/sources
+
+# Add rptx user:
+groupadd rptx
+useradd -s /bin/bash -g rptx -m -k /dev/null rptx
+passwd rptx
+
+# Grant rptx full access to all the directories under $RPTX by making rptx the owner:
+chown -v rptx $RPTX $RPTX/sources
+
+# Allow rptx user to use sudo:
+usermod -a -G sudo rptx
+
+# Start a shell running as user rptx
+su - rptx
+
+#------------As user rptx: -----------------------------
+# Set up a good working environment:
+cat > ~/.bash_profile << "EOF"
+exec env -i HOME=$HOME TERM=$TERM PS1='\u:\w\n\$ ' /bin/bash
+EOF
+
+cat > ~/.bashrc << "EOF"
+set +h
+umask 022
+RPTX=/mnt/rptx
+LC_ALL=POSIX
+LFS_TGT=$(uname -m)-linux-musl
+PATH=/usr/bin
+# add /bin to the path if it's not a symlink
+if [ ! -L /bin ]; then PATH=$PATH:/bin; fi
+PATH=$RPTX/_tools/bin:$PATH
+export LFS LC_ALL LFS_TGT PATH
+EOF
+
+# Apply the files above:
+source ~/.bash_profile
+
+# Download mussel to build a toolchain
+cd $RPTX/sources
+git clone https://github.com/firasuke/mussel
+
+# Make sure host has all requirements:
+cd mussel
+./check.sh
+
+# Modify ./mussel.sh to change these:
+# MPREFIX="/_tools"
+# MSYSROOT="/_tools"
+
+# Build toolchain:
+sudo ./mussel.sh x86_64 -l -o -p
+
+# AM4, 5600x(6c/12t), 16GB 3200 Mhz DDR4, SATA6-HDD
+# 6m15.847s
+
+# Move it to the $RPTX directory and create a symlink:
+sudo chown -R rptx /_tools
+sudo mv /_tools $RPTX/_tools
+sudo ln -s $RPTX/_tools /_tools
+
+# The new cross compiler has built-in specs which refer to the
+# musl dynamic loader  /lib/ld-musl-x86_64.so.1 . We have to
+# adjust this to reflect the filesystem layout of the target
+# system which is  /slnx/lib/ld-musl-x86_64.so.1 . This will
+# be reached by creating a modified  specs  file in the proper
+# location:
+/_tools/bin/x86_64-linux-musl-gcc -dumpspecs | sed 's/\/lib\/ld-musl/\/system\/lib\/ld-musl/g' > /_tools/lib/gcc/x86_64-linux-musl/12.2.0/specs
+
+# Test the _tools toolchain:
+cd $RPTX
+printf "#include <stdio.h>\nint main(){}\n" > dummy.c
+$LFS_TGT-gcc dummy.c
+readelf -l a.out | grep ld
+
+# Should output:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+# If matching, clean up:
+rm -rf a.out dummy.c
+
+# Create basic directory tree
+mkdir -pv $RPTX/{apps,system,log,tmp,var}
+
+mkdir -pv $RPTX/system/{bin,lib}
+mkdir -pv $RPTX/system/log/pkgs
+mkdir -pv $RPTX/help/man
+
+
+# Create symlinks to the RPTX directory tree
+sudo ln -sv $RPTX/system /system
+sudo ln -sv $RPTX/apps   /apps
+sudo ln -sv $RPTX/help   /help
+
+# Use the “fresh” header files “created” by  mussel.sh . It doesn't
+# make any significant difference to extract and install them again.
+# Copy the headers from the mussel toolchain:
+cp -vr /_tools/usr/include $RPTX/apps/inc
+
+# For future reference, copy log from mussel
+cp -v $RPTX/sources/mussel/log.txt /system/log/mussel_build.log
+
+# Build musl libc
+cd $RPTX/sources
+tar xf musl-1.2.3.tar.gz && cd musl-1.2.3
+./configure --prefix=/system        \
+            --bindir=/system/bin    \
+            --includedir=/apps/inc  \
+            --syslibdir=/system/lib \
+            --target=$LFS_TGT
+# Build
+make 
+
+# AM4, 5600x(6c/12t), 16GB 3200 Mhz DDR4, SATA6-HDD
+0m5.034s
+
+# Install musl libc
+make install
+
+# Create link for ldd:
+ln -sv /system/lib/ld-musl-x86_64.so.1 ${RPTX}/system/bin/ldd
+
+# Create config for dynamic library loading:
+cat > /system/etc/ld-musl-x86_64.path << "EOF"
+/system/lib
+/apps/lib
+EOF
+
+# Build Notes---------------------------------------------------------------
+
+# Build flags for documentation:
+export  HELPFLAGS="--mandir=/help/man "
+export HELPFLAGS+="--infodir=/help/info "
+
+# Build flags for system software (/system)
+export  SYSFLAGS="--prefix=/system "
+export SYSFLAGS+="--bindir=/system/bin "
+export SYSFLAGS+="--sbindir=/system/bin "
+export SYSFLAGS+="--libexecdir=/system/exec "
+export SYSFLAGS+="--libdir=/system/lib "
+export SYSFLAGS+="--includedir=/apps/inc " 
+export SYSFLAGS+="--datarootdir=/system/data "
+export SYSFLAGS+="--sysconfdir=/system/etc "
+export SYSFLAGS+="--localstatedir=/var "
+
+# Build flags for non-system software (/apps) or 
+# software not required for boot
+export  APPFLAGS="--prefix=/apps "
+export APPFLAGS+="--bindir=/apps/bin "
+export APPFLAGS+="--sbindir=/apps/bin "
+export APPFLAGS+="--libexecdir=/apps/exec "
+export APPFLAGS+="--libdir=/apps/lib "
+export APPFLAGS+="--includedir=/apps/inc "
+export APPFLAGS+="--datarootdir=/apps/data "
+export APPFLAGS+="--sysconfdir=/apps/etc "
+export APPFLAGS+="--localstatedir=/var "
+
+# -------------------------------------------------------------------------
+
+# Build m4
+cd $RPTX/sources
+tar xf m4-1.4.19.tar.xz && cd m4-1.4.19
+./configure --prefix=/system   \
+            --host=$LFS_TGT \
+            --build=$(build-aux/config.guess) \
+            --mandir=/help/man \
+            --infodir=/help/info
+make && make install
+
+# Build Ncurses
+cd $RPTX/sources
+tar xf ncurses-6.3.tar.gz && cd ncurses-6.3 
+./configure --prefix=/system \
+            --host=$LFS_TGT \
+            --build=$(./config.guess) \
+            --includedir=/apps/inc \
+            --datarootdir=/system/data \
+            --mandir=/help/man \
+            --with-manpage-format=normal \
+            --with-shared \
+            --without-debug \
+            --without-ada \
+            --without-normal \
+            --enable-widec
+make && make TIC_PATH=/usr/bin/tic install 
+echo "INPUT(-lncursesw)" > $RPTX/system/lib/libncurses.so
+
+# Build Dash
+cd $RPTX/sources
+tar xf dash-0.5.11.5.tar.gz && cd dash-0.5.11.5 
+./autogen.sh
+./configure --prefix=/system \
+            --build=$(support/config.guess) \
+            --host=$LFS_TGT \
+            --bindir=/system/bin \
+            --sbindir=/system/bin \
+            --libexecdir=/system/exec \
+            --libdir=/system/lib \
+            --includedir=/apps/inc \
+            --datarootdir=/system/data \
+            --sysconfdir=/system/etc \
+            --localstatedir=/var \
+            --mandir=/help/man  --infodir=/help/info --mandir=/help/man 
+make && make install
+
+# Create needed symlinks to make dash the sh interepeter
+cd $RPTX
+mkdir -pv apps/bin
+ln -sv apps/bin              bin
+ln -sv system/bin            sbin
+ln -sv dash                  system/bin/sh
+ln -sv ../../system/bin/dash bin/sh
+
+# Build Bash
+cd $RPTX/sources
+tar xf bash-5.2.tar.gz && cd bash-5.2 
+./configure --prefix=/apps \
+            --build=$(support/config.guess) \
+            --host=$LFS_TGT \
+            --without-bash-malloc \
+            --bindir=/apps/bin \
+            --bindir=/apps/bin \
+            --libexecdir=/app/exec \
+            --libdir=/apps/lib \
+            --includedir=/apps/inc \
+            --datarootdir=/apps/data \
+            --mandir=/help/man \
+            --infodir=/help/info \
+            --docdir=/help/doc/bash-5.2
+make && make install
+
+# Build coreutils
+cd $RPTX/sources
+tar xf coreutils-9.1.tar.xz && cd coreutils-9.1
+./configure --prefix=/system \
+            --build=$(build-aux/config.guess) \
+            --host=$LFS_TGT \
+            --bindir=/system/bin \
+            --sbindir=/system/bin \
+            --libexecdir=/system/exec \
+            --libdir=/system/lib \
+            --includedir=/apps/inc \
+            --datarootdir=/system/data \
+            --sysconfdir=/system/etc \
+            --localstatedir=/var \
+            --enable-install-program=hostname \
+            --enable-no-install-program=kill,uptime \
+            --mandir=/help/man  --infodir=/help/info 
+make && make install
+
+# Build diffutils
+cd $RPTX/sources
+tar xf diffutils-3.8.tar.xz && cd diffutils-3.8 
+./configure --host=$LFS_TGT $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build File
+cd $RPTX/sources
+tar xf file-5.43.tar.gz && cd file-5.43
+# Run the following command to install 'magic.mgc' directly in  
+# /system/data  instead of  /system/data/misc :
+sed -i '/^pkgdatadir/s/\/misc//g' configure
+./configure --host=$LFS_TGT $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build findutils
+cd $RPTX/sources
+tar xf findutils-4.9.0.tar.xz && cd findutils-4.9.0 
+./configure --build=$(build-aux/config.guess) --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build Gawk
+cd $RPTX/sources
+tar xf gawk-5.2.0.tar.xz && cd gawk-5.2.0  
+./configure --build=$(./config.guess) --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build Grep
+cd $RPTX/sources
+tar xf grep-3.8.tar.xz && cd grep-3.8 
+./configure --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build Gzip
+cd $RPTX/sources
+tar xf gzip-1.12.tar.xz && cd gzip-1.12
+./configure --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build Make
+cd $RPTX/sources
+tar xf make-4.4.tar.gz && cd make-4.4 
+./configure --build=$(build-aux/config.guess) --host=$LFS_TGT --without-guile $APPFLAGS $HELPFLAGS
+make && make install
+
+# Build Patch
+cd $RPTX/sources
+tar xf patch-2.7.6.tar.xz && cd patch-2.7.6
+./configure --build=$(build-aux/config.guess) --host=$LFS_TGT $APPFLAGS $HELPFLAGS
+make && make install
+
+# Build Sed
+cd $RPTX/sources
+tar xf sed-4.8.tar.xz && cd sed-4.8 
+./configure --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build Tar
+cd $RPTX/sources
+tar xf tar-1.34.tar.xz && cd tar-1.34
+./configure --build=$(build-aux/config.guess) --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS
+make && make install
+
+# Build Xz
+cd $RPTX/sources
+tar xf xz-5.2.7.tar.xz && cd xz-5.2.7
+./configure --build=$(build-aux/config.guess) --host=$LFS_TGT --disable-static $SYSFLAGS $HELPFLAGS --docdir=/help/doc/xz-5.27
+make && make install
+
+# Build Binutils (Pass 2?)
+cd $RPTX/sources
+tar xf binutils-2.39.tar.xz && cd binutils-2.39
+# Binutils ships an outdated libtool copy in the tarball. 
+# It lacks sysroot support so the produced binaries will 
+# be mistakenly linked to libraries from the host distro. 
+# Workaround this issue:
+sed '6009s/$add_dir//' -i ltmain.sh
+
+# Change the default library path to  /system/lib :
+# Not sure what to patch or to just use flag  --with-lib-path=/system/lib
+mkdir -v build && cd build
+../configure --build=$(../config.guess) --host=$LFS_TGT --disable-nls --enable-shared --disable-werror --enable-64-bit-bfd \
+             $SYSFLAGS --with-lib-path=/system/lib --enable-gprofng=no
+# Fixed the tooldirs in the Makefile:
+# tooldir = /system
+# build_tooldir = /system
+
+make tooldir=/system && make tooldir=/system install -j1 
+
+# Remove the libtool archive files because they are harmful 
+# for cross compilation, and remove unnecessary static libraries:
+rm -v /system/lib/lib{bfd,ctf,ctf-nobfd,opcodes}.{a,la}
+
+# Build GCC (Pass2?)
+cd $RPTX/sources
+tar xf gcc-12.2.0.tar.xz && cd gcc-12.2.0 
+# Extract the mpfr, mpc and gmp packages into the source tree
+tar -xf ../mpfr-4.1.0.tar.xz
+mv -v mpfr-4.1.0 mpfr
+tar -xf ../gmp-6.2.1.tar.xz
+mv -v gmp-6.2.1 gmp
+tar -xf ../mpc-1.2.1.tar.gz
+mv -v mpc-1.2.1 mpc
+
+# use patch from mussel:
+patch -Np0 -i ../mussel/patches/gcc/glaucus/0001-pure64-for-x86-64.patch
+
+# change the location of GCC's default dynamic linker to use the one installed in /system.
+for file in gcc/config/{linux,i386/linux{,64}}.h
+do
+  cp -uv $file{,.orig}
+  sed -e 's@/lib\(64\)\?\(32\)\?/ld@/system&@g' \
+      -e 's@/usr@/system@g' $file.orig > $file
+  echo '
+#undef STANDARD_STARTFILE_PREFIX_1
+#undef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_1 "/system/lib/"
+#define STANDARD_STARTFILE_PREFIX_2 ""' >> $file
+  touch $file.orig
+done
+
+# Override the building rule of libgcc and libstdc++ headers, to allow building these 
+# libraries with POSIX threads support:
+sed '/thread_header =/s/@.*@/gthr-posix.h/' \
+    -i libgcc/Makefile.in libstdc++-v3/include/Makefile.in
+
+# Build in dedicated directory
+mkdir -v build && cd build
+../configure --build=$(../config.guess) --host=$LFS_TGT \
+             CC_FOR_TARGET=$LFS_TGT-gcc CXX_FOR_TARGET=$LFS_TGT-g++ LDFLAGS_FOR_TARGET=-L$PWD/$LFS_TGT/libgcc \
+             --with-tune=generic \
+             --with-arch=x86-64 --enable-languages=c,c++ --disable-bootstrap \
+             --enable-initfini-array --disable-multilib --disable-libsanitizer \
+             --disable-werror $APPFLAGS $HELPFLAGS --docdir=/help/gcc-12.2.0
+make all-gcc all-target-libgcc
+
+# Check that dynamic loader is set:
+readelf -l gcc/cc1 | grep ld
+
+# Should output:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+
+# If correct, install it:
+make install-gcc
+
+# Build and install libgcc
+make -C $LFS_TGT/libgcc distclean
+make enable-shared=yes all-target-libgcc
+make install-target-libgcc
+
+# Build and install libstdc++-v3 for c++ support
+make all-target-libstdc++-v3
+make install-target-libstdc++-v3
+
+# Optionally build OpenMP support (libgomp):
+make all-target-libgomp
+make install-target-libgomp
+
+# Update PATH:
+export PATH=/system/bin:/apps/bin:/_tools/bin
+
+# Verify that all works like expected:
+printf "#include <stdio.h>\nint main(){}\n" > dummy.c
+/apps/bin/gcc  dummy.c
+
+# Check for the correct dynamic loader:
+readelf -l a.out | grep ld
+
+# Should be:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+
+# Execute the  a.out   file:
+./a.out
+
+# There should be no output as well no error. 
+# Do the same for c++. First create a c++ testfile:
+cat > dummy.cpp << "EOF"
+#include<iostream>
+int main(int argc, char** argv) {
+  using namespace std;
+  int ret = 0;
+  return ret;
+}
+EOF
+
+g++ dummy.cpp -o cpp.out
+
+# Check for the correct dynamic loader:
+readelf -l cpp.out | grep ld
+
+# Should be:
+# [Requesting program interpreter: /system/lib/ld-musl-x86_64.so.1]
+
+# Execute the  cpp.out   file:
+./cpp.out
+
+# There should be no output as well no error. 
+
+# Clean up
+rm -v a.out cpp.out dummy.c dummy.cpp
+
+## Prep for Chroot environmment
+
+# Changing Ownership:
+# Exit shell for rptx user. Login as root
+exit
+su - root
+
+# establish the $RPTX
+export $RPTX=/mnt/rptx
+
+# Change the ownership of the $RTPX/{apps,system,...}  directories to user root by running the following command: 
+chown -R root:root  $RPTX/{apps,bin,help,log,sbin,sources,system,tmp,_tools,var}
+mkdir -pv  $RPTX/home/root
+
+# Fix permissions for $RPTX/tmp
+chmod -v a+rwx $RPTX/tmp
+
+# Creating directories onto which the kernel file systems will be mounted:
+mkdir -pv $RPTX/system/{dev,proc,sys,run}
+
+# Create Initial Device Nodes
+mknod -m 600 $RPTX/system/dev/console c 5 1
+mknod -m 666 $RPTX/system/dev/null    c 1 3
+
+# The  /system/etc/password  and  /system/etc/group  shall exist in the “chroot” environment.
+cat  > $RPTX/system/etc/passwd << "EOF"
+root:x:0:0:root:/home/root:/apps/bin/bash
+daemon:x:6:6:Daemon User:/system/dev/null:/apps/bin/false
+messagebus:x:18:18:D-Bus Message Daemon User:/system/run/dbus:/apps/bin/false
+uuidd:x:80:80:UUID Generation Daemon User:/system/dev/null:/apps/bin/false
+nobody:x:99:99:Unprivileged User:/system/dev/null:/apps/bin/false
+EOF
+
+cat > $RPTX/system/etc/group << "EOF"
+root:x:0:
+sys:x:2:
+kmem:x:3:
+tape:x:4:
+tty:x:5:
+daemon:x:6:
+floppy:x:7:
+disk:x:8:
+lp:x:9:
+dialout:x:10:
+audio:x:11:
+video:x:12:
+utmp:x:13:
+usb:x:14:
+cdrom:x:15:
+adm:x:16:
+messagebus:x:18:
+input:x:24:
+mail:x:34:
+kvm:x:61:
+uuidd:x:80:
+wheel:x:97:
+nogroup:x:99:
+users:x:999:
+EOF
+
+# Adjustment of the Shebang in scripts in /system/bin
+cat > $RPTX/system/bin/rshebang << EOF
+cd \$RPTX/system/bin
+
+for f in \`ls -R\` ; do
+  head -1 \$f | grep '#!' &>/dev/null && sed -i "s/^#\!.*$/#\!\/system\/bin\/sh/" \$f
+done
+EOF
+chmod -v 755 $RPTX/system/bin/rshebang
+
+# Run script to convert:
+cd $RPTX/system/bin
+./rshebang
+
+# Check:
+head -1 $RPTX/system/bin/znew
+
+# Should output:
+#!/system/bin/sh
+
+# Create a useful script in absence of Which:
+cat > $RPTX/system/bin/which << "EOF"
+#!/system/bin/sh
+type -pa "$@" | head -n 1 ; exit ${PIPESTATUS[0]}
+EOF
+chmod -v 755 $RPTX/system/bin/which
+
+## Mounting Virtual Kernel File Systems
+# Create a script to mount kernel filesystems prior to chroot-ing
+cat > $RPTX/rptx_mount.sh << "EOF"
+#! /bin/bash
+
+# Check if LFS was set
+if [ "$1" != "" ]; then
+    echo "[  ii  ] rootfs set at $1 " && 
+    export LFS=$1 &&
+    mount -v --bind /dev $LFS/system/dev &&
+    mount -vt devpts devpts $LFS/system/dev/pts -o gid=5,mode=620 &&
+    mount -vt proc proc $LFS/system/proc &&
+    mount -vt sysfs sysfs $LFS/system/sys &&
+    mount -vt tmpfs tmpfs $LFS/system/run &&
+    if [ -h $LFS/system/dev/shm ]; then
+        mkdir -pv $LFS/system/$(readlink $LFS/dev/shm)
+    fi
+    echo "[ DONE ] RPTX at $1 is mounted."
+else
+    echo "[ STOP ] RPTX not set. Please set. Usage: rptx_mount [path-to-rootfs] "
+fi
+EOF
+
+cat > $RPTX/rptx_chroot.sh << "EOF"
+#! /bin/bash
+
+# Check if LFS was set
+if [ "$1" != "" ]; then
+    echo "[  ii  ] Rootfs set at $1 " && 
+    echo "[  ii  ] Chroot-ing..." &&
+    export LFS=$1 &&
+    chroot "$LFS" /system/bin/env -i          \
+    HOME=/home/root TERM="screen"            \
+    PS1='(raptix chroot) \u:\w\n\$ '        \
+    PATH=/apps/bin:/system/bin \
+    CC=musl-gcc \
+    /apps/bin/bash --login &&
+    echo "[ DONE ] RPTX at $1 was chroot'ed. Exited chroot."
+else
+    echo "[ STOP ] RPTX not set. Please set. Usage: rptx_chroot.sh [path-to-rootfs] "
+fi
+EOF
+
+cat > $RPTX/rptx_umount.sh << "EOF"
+#! /bin/bash
+
+# Check if LFS was set
+if [ "$1" != "" ]; then
+    echo "[  ii  ] rootfs set at $1 " && 
+    export LFS=$1 &&
+    umount -v $LFS/system/dev/pts &&
+    umount -v $LFS/system/dev &&
+    umount -v $LFS/system/run &&
+    umount -v $LFS/system/proc &&
+    umount -v $LFS/system/sys &&
+    echo "[ DONE ] RPTX at $1 is unmounted."
+else
+    echo "[ STOP ] RPTX not set. Please set. Usage: rptx_umount [path-to-rootfs] "
+fi
+EOF
+
+chmod -v 755 $RPTX/rptx_mount.sh
+chmod -v 755 $RPTX/rptx_chroot.sh
+chmod -v 755 $RPTX/rptx_umount.sh
+
+# Enter chroot as root:
+$RPTX/rptx_mount.sh $RPTX
+$RPTX/rptx_chroot.sh $RPTX
+
+# Create directories
+mkdir -pv /build /media /opt
+mkdir -pv /system/lib/firmware
+mkdir -pv /system/boot/sys
+mkdir -pv /system/efi
+mkdir -pv /var/log
+
+# Create symlinks
+ln -sfv /system/run      /var/run
+ln -sfv /system/run/lock /var/lock
+ln -sv /system/proc/self/mounts /system/etc/mtab
+ln -sv /system/etc /etc #........................... as bash won't remove the “I have no name!” prompt 
+ln -sv /system/dev       /dev
+ln -sv apps              /usr
+ln -sv inc               /apps/include #............ gcc still check /usr/include
+
+chmod -v  1777 /tmp 
+chmod -v  1777 /var/tmp
+
+touch /var/log/{btmp,lastlog,faillog,wtmp}
+
+chgrp -v utmp /var/log/lastlog
+chmod -v 664  /var/log/lastlog
+chmod -v 600  /var/log/btmp
+
+# Create a basic /etc/hosts file
+cat > /system/etc/hosts << EOF
+127.0.0.1  localhost RPTX
+::1        localhost
+EOF
+
+# Define build flags
+# Build flags for documentation:
+export  HELPFLAGS="--mandir=/help/man "
+export HELPFLAGS+="--infodir=/help/info "
+
+# Build flags for system software (/system)
+export  SYSFLAGS="--prefix=/system "
+export SYSFLAGS+="--bindir=/system/bin "
+export SYSFLAGS+="--sbindir=/system/bin "
+export SYSFLAGS+="--libexecdir=/system/exec "
+export SYSFLAGS+="--libdir=/system/lib "
+export SYSFLAGS+="--includedir=/apps/inc "
+export SYSFLAGS+="--datarootdir=/system/data "
+export SYSFLAGS+="--sysconfdir=/system/etc "
+export SYSFLAGS+="--localstatedir=/var "
+
+# Build flags for non-system software (/apps) or
+# software not required for boot
+export  APPFLAGS="--prefix=/apps "
+export APPFLAGS+="--bindir=/apps/bin "
+export APPFLAGS+="--sbindir=/apps/bin "
+export APPFLAGS+="--libexecdir=/apps/exec "
+export APPFLAGS+="--libdir=/apps/lib "
+export APPFLAGS+="--includedir=/apps/inc "
+export APPFLAGS+="--datarootdir=/apps/data "
+export APPFLAGS+="--sysconfdir=/apps/etc "
+export APPFLAGS+="--localstatedir=/var "
+
+# Chroot: Build bison
+cd /sources
+tar xf bison-3.8.2.tar.xz && cd bison-3.8.2
+./configure $APPFLAGS $HELPFLAGS --docdir=/help/doc/bison-3.8.2
+make && make install
+# Fix the shebang of  yacc 
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' /apps/bin/yacc
+
+# Build util-Linux
+cd /sources
+tar xf util-linux-2.38.1.tar.xz && cd util-linux-2.38.1
+./configure $SYSFLAGS $HELPFLAGS --docdir=/help/doc/util-linux-2.38.1 --runstatedir=/system/run
+make && make install
+mv /system/sbin/* /system/bin/
+rm -rf /system/sbin
+
+# Clean up temporary tools
+find /system/{lib,exec} -name \*.la -delete
+
+# The /_tools directory is no longer needed:
+rm -rf /_tools
+
+## Installing packages for final system
+
+# Musl Libc
+cd /sources
+tar xf musl-1.2.3.tar.gz && cd musl-1.2.3
+
+# fix shebang for configure & other scripts:
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' configure
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' tools/*.sh
+sed -i 's!/bin/sh!/system/bin/sh!g' include/paths.h 
+sed -i 's!/bin/sh!/system/bin/sh!g' src/misc/wordexp.c
+sed -i 's!/bin/sh!/system/bin/sh!g' src/stdio/popen.c 
+sed -i 's!/bin/sh!/system/bin/sh!g' src/legacy/getusershell.c
+sed -i 's!/bin/sh!/system/bin/sh!g' src/process/system.c 
+
+# Fix references to /dev
+sed -i 's!/dev!/system/dev!g' configure
+sed -i 's!/dev!/system/dev!g' include/syslog.h  
+sed -i 's!/dev!/system/dev!g' include/paths.h
+sed -i 's!/dev!/system/dev!g' include/utmp.h
+sed -i 's!/dev!/system/dev!g' include/sys/mtio.h
+sed -i 's!/dev!/system/dev!g' src/unistd/ctermid.c
+sed -i 's!/dev!/system/dev!g' src/misc/fmtmsg.c
+sed -i 's!/dev!/system/dev!g' src/misc/pty.c
+sed -i 's!/dev!/system/dev!g' src/misc/wordexp.c
+sed -i 's!/dev!/system/dev!g' src/misc/openpty.c
+sed -i 's!/dev!/system/dev!g' src/misc/syslog.c
+sed -i 's!/dev!/system/dev!g' src/legacy/daemon.c
+sed -i 's!/dev!/system/dev!g' src/legacy/getpass.c
+sed -i 's!/dev!/system/dev!g' src/thread/sem_open.c
+sed -i 's!/dev!/system/dev!g' src/env/__libc_start_main.c
+sed -i 's!/dev!/system/dev!g' src/mman/shm_open.c 
+sed -i 's!/dev!/system/dev!g' src/passwd/nscd_query.c
+sed -i 's!/dev!/system/dev!g' tools/version.sh   
+
+# fix paths in include/paths & include/utmp.h
+patch 
+
+# ... or use a patch:
+patch -Np1 -i ../patches/musl-fix-paths.patch 
+
+./configure --prefix=/system        \
+            --bindir=/system/bin    \
+            --includedir=/apps/inc  \
+            --syslibdir=/system/lib \
+            --libdir=/system/lib 
+
+# fix shebang in Makefile
+sed -i 's!/bin/sh!/system/bin/sh!g' Makefile
+
+make
+sed -f ./tools/mkalltypes.sed ./arch/x86_64/bits/alltypes.h.in ./include/alltypes.h.in > obj/include/bits/alltypes.h
+make
+sed -n -e s/__NR_/SYS_/p < arch/x86_64/bits/syscall.h.in >> obj/include/bits/syscall.h
+make
+printf '#define VERSION "%s"\n' "$(cd .; sh tools/version.sh)" > obj/src/internal/version.h
+
+make install
+
+# Provide minimal libssp_nonshared.a so we don't need libssp from gcc
+gcc -fpie -c ../files/__stack_chk_fail_local.c -o __stack_chk_fail_local.o
+gcc-ar r libssp_nonshared.a __stack_chk_fail_local.o
+cp -v libssp_nonshared.a /system/lib/
+
+# Build zlib
+cd /sources
+tar xf zlib-1.2.13.tar.xz && cd zlib-1.2.13 
+
+# Fix shebangs:
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' configure
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' Makefile.in
+
+# Fix /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
+# Create a directory needed for compiling
+mkdir objs
+
+./configure --prefix=/system --includedir=/apps/inc
+make
+
+#  Make complains that "/bin/sh" is absent. Manually install:
+cp -v libz.so.1.2.13  /system/lib
+ln -sv libz.so.1.2.13 /system/lib/libz.so
+ln -sv libz.so.1.2.13 /system/lib/libz.so.1
+mkdir -pv /system/lib/pkgconfig
+cp -v zlib.pc /system/lib/pkgconfig/
+cp -v zconf.h zlib.h /apps/inc/
+
