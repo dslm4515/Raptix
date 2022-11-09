@@ -1,7 +1,7 @@
 # Use the “fresh” header files “created” by  mussel.sh . It doesn't
 # make any significant difference to extract and install them again.
 # Copy the headers from the mussel toolchain:
-cp -vr /_tools/usr/include $RPTX/apps/inc
+cp -vr /_tools/usr/include $RPTX/apps/include
 
 # OR download the kernel (6.0.6) source from kernel.log
 wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.0.6.tar.xz
@@ -15,8 +15,9 @@ make mrproper
 ARCH=x86 make headers
 
 # Install
-cp -rv usr/include/* /apps/inc/
+mkdir -pv /apps/include
+cp -rv usr/include/* /apps/include/
 
 # Remove unnecessary files for this stage:
-find /apps/inc \( -name '.*' -o -name '.*.cmd' \) -exec rm -vf {} \;
-rm -v /apps/inc/Makefile
+find /apps/include \( -name '.*' -o -name '.*.cmd' \) -exec rm -vf {} \;
+rm -v /apps/include/Makefile

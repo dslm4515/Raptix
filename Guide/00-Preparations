@@ -32,7 +32,7 @@ LFS_TGT=$(uname -m)-linux-musl
 PATH=/usr/bin
 # add /bin to the path if it's not a symlink
 if [ ! -L /bin ]; then PATH=$PATH:/bin; fi
-PATH=/system/bin:/apps/bin:/$RPTX/_tools/bin:$PATH
+PATH=$RPTX/_tools/bin:/system/bin:/apps/bin:$PATH
 export LFS LC_ALL LFS_TGT PATH
 
 # Build flags for documentation:
@@ -45,7 +45,7 @@ export SYSFLAGS+="--bindir=/system/bin "
 export SYSFLAGS+="--sbindir=/system/bin "
 export SYSFLAGS+="--libexecdir=/system/exec "
 export SYSFLAGS+="--libdir=/system/lib "
-export SYSFLAGS+="--includedir=/apps/inc "
+export SYSFLAGS+="--includedir=/apps/include "
 export SYSFLAGS+="--datarootdir=/system/data "
 export SYSFLAGS+="--sysconfdir=/system/etc "
 export SYSFLAGS+="--localstatedir=/var "
@@ -57,7 +57,7 @@ export APPFLAGS+="--bindir=/apps/bin "
 export APPFLAGS+="--sbindir=/apps/bin "
 export APPFLAGS+="--libexecdir=/apps/exec "
 export APPFLAGS+="--libdir=/apps/lib "
-export APPFLAGS+="--includedir=/apps/inc "
+export APPFLAGS+="--includedir=/apps/include "
 export APPFLAGS+="--datarootdir=/apps/data "
 export APPFLAGS+="--sysconfdir=/apps/etc "
 export APPFLAGS+="--localstatedir=/var "
