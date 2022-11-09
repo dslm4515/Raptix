@@ -1,6 +1,18 @@
 # Build Ncurses
 cd $RPTX/sources
 tar xf ncurses-6.3.tar.gz && cd ncurses-6.3
+
+# Fix all references to /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
+# run the following commands to build the “tic” program on the build host:
+mkdir build
+pushd build
+  ../configure
+  make -C include
+  make -C progs tic
+popd
+
 ./configure --host=$LFS_TGT \
             --build=$(./config.guess) \
             --with-manpage-format=normal \
@@ -9,8 +21,9 @@ tar xf ncurses-6.3.tar.gz && cd ncurses-6.3
             --without-ada \
             --without-normal \
             --enable-widec \
-            $SYSFLAGS $HELPFLAGS \
-            --docdir=/help/doc/ncurses-6.3
+            --with-cxx-shared \
+            --disable-stripping \
+            $SYSFLAGS $HELPFLAGS 
 
-make && make TIC_PATH=/usr/bin/tic install
+make && make TIC_PATH=$(pwd)/build/progs/tic  install
 echo "INPUT(-lncursesw)" > $RPTX/system/lib/libncurses.so
