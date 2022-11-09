@@ -2,6 +2,16 @@
 
 cd $RPTX/sources
 tar xf coreutils-9.1.tar.xz && cd coreutils-9.1
+
+# Fix all references to /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
+# Fix all references to /bin/sh to /system/bin/sh
+sed -i 's!/bin/sh!/system/bin/sh!g' src/split.c
+sed -i 's!/bin/sh!/system/bin/sh!g' src/chroot.c
+sed -i 's!/bin/sh!/system/bin/sh!g' lib/getusershell.c
+
+
 ./configure --build=$(build-aux/config.guess) \
             --host=$LFS_TGT \
             --enable-install-program=hostname \

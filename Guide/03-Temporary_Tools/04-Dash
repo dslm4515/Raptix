@@ -5,6 +5,9 @@ tar xf dash-0.5.11.5.tar.gz && cd dash-0.5.11.5
 # Generate configure script with autotools
 ./autogen.sh
 
+# Fix all references to /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
 # Configure source
 ./configure --build=$(support/config.guess) \
             --host=$LFS_TGT \
@@ -14,6 +17,6 @@ make && make install
 
 # Create needed symlinks to make dash the sh interepeter
 cd $RPTX
+rm -v system/bin/sh
 ln -sv dash                  system/bin/sh
-ln -sv ../../system/bin/dash bin/sh
 

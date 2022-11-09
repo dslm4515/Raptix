@@ -1,5 +1,16 @@
 # Build Bash
 tar xf bash-5.2.tar.gz && cd bash-5.2
+
+# Fix all references to /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
+# Fix all references to /bin/sh to /system/bin/sh
+sed -i 's!/bin/sh!/system/bin/sh!g'  shell.c
+sed -i 's!/bin/sh!/system/bin/sh!g'  lib/intl/Makefile.in
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' builtins/psize.sh
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' support/*
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' lib/intl/config.charset
+
 ./configure --build=$(support/config.guess) \
             --host=$LFS_TGT \
             --without-bash-malloc \

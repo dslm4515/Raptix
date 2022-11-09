@@ -3,9 +3,23 @@
 cd $RPTX/sources
 tar xf musl-1.2.3.tar.gz && cd musl-1.2.3
 
+# Patch source to fix shebangs, paths, and references to /dev:
+patch -Np1 -i ../patches/musl-fix-paths.patch 
+
+# Add symlinks so that /dev/nul can be found in /system/dev and
+# bash in /system/bin
+mkdir -v $RPTX/system/dev 
+sudo mount -v --bind /dev $RPTX/system/dev 
+
+# Link dash if host has it
+ln -sv /usr/bin/dash /system/bin/sh
+
+# Or link Bash if no dash on host:
+ln -sv /usr/bin/dash /system/bin/sh
+
 ./configure --prefix=/system        \
             --bindir=/system/bin    \
-            --includedir=/apps/inc  \
+            --includedir=/apps/include  \
             --syslibdir=/system/lib \
             --target=$LFS_TGT
 # Build
@@ -18,6 +32,7 @@ make install
 ln -sv /system/lib/ld-musl-x86_64.so.1 ${RPTX}/system/bin/ldd
 
 # Create config for dynamic library loading:
+mkdir -v /system/etc 
 cat > /system/etc/ld-musl-x86_64.path << "EOF"
 /system/lib
 /apps/lib

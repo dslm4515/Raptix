@@ -1,6 +1,10 @@
 # Build M4
 cd $RPTX/sources
 tar xf m4-1.4.19.tar.xz && cd m4-1.4.19
+
+# Fix all references to /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
 ./configure --host=$LFS_TGT \
             --build=$(build-aux/config.guess) \
             $SYSFLAGS $HELPFLAGS \
