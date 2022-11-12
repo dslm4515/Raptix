@@ -3,6 +3,11 @@
 cd $RPTX/sources
 tar xf patch-2.7.6.tar.xz && cd patch-2.7.6
 
+# Fix all references to /dev/null to /system/dev/null
+cd src
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+cd ..
+
 ./configure --build=$(build-aux/config.guess) \
             --host=$LFS_TGT $APPFLAGS $HELPFLAGS \
             --docdir=/help/doc/patch-2.7.6
