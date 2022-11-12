@@ -2,6 +2,12 @@
 
 tar xf file-5.43.tar.gz && cd file-5.43
 
+# Fix all references to /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
+# Fix any shebangs...
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' configure
+
 # Run the following command to install 'magic.mgc' directly in
 # /system/data  instead of  /system/data/misc :
 sed -i '/^pkgdatadir/s/\/misc//g' configure
