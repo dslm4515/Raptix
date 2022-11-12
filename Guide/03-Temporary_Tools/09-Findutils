@@ -3,6 +3,9 @@
 cd $RPTX/sources
 tar xf findutils-4.9.0.tar.xz && cd findutils-4.9.0
 
+# Fix any shebangs...
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' configure
+
 ./configure --build=$(build-aux/config.guess) \
             --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS \
             --docdir=/help/doc/findutils-4.9.0
