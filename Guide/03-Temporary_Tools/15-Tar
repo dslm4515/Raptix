@@ -3,6 +3,13 @@
 cd $RPTX/sources
 tar xf tar-1.34.tar.xz && cd tar-1.34
 
+# Fix all references to /dev/null to /system/dev/null
+cd src
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+cd ../lib
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+cd ..
+
 ./configure --build=$(build-aux/config.guess) \
             --host=$LFS_TGT  $SYSFLAGS $HELPFLAGS \
             --docdir=/help/doc/tar-1.34
