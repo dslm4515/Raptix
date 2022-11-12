@@ -3,6 +3,13 @@
 cd $RPTX/sources
 tar xf sed-4.8.tar.xz && cd sed-4.8
 
+# Fix all references to /dev/null to /system/dev/null
+cd sed
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+cd ../lib
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+cd ..
+
 ./configure --host=$LFS_TGT $SYSFLAGS \
             $HELPFLAGS --docdir=/help/doc/sed-4.8
 make && make install
