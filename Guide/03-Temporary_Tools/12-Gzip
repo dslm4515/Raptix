@@ -3,6 +3,12 @@
 cd $RPTX/sources
 tar xf gzip-1.12.tar.xz && cd gzip-1.12
 
+# Fix all references to /dev/null to /system/dev/null
+for f in `grep -snr '/dev/null' | cut -d: -f1` ; do sed -i '/system/!s|/dev/null|/system/dev/null|g' $f ; done
+
+# Fix any shebangs...
+sed -i 's/^#\!*.\/bin\/sh/#\!\/system\/bin\/sh/g' configure
+
 ./configure --host=$LFS_TGT \
             $SYSFLAGS $HELPFLAGS \
             --docdir=/help/doc/gzip-1.12
