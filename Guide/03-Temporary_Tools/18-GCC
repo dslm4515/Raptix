@@ -11,6 +11,8 @@ mv -v gmp-6.2.1 gmp
 tar -xf ../mpc-1.2.1.tar.gz
 mv -v mpc-1.2.1 mpc
 
+# The target build is finding the host libstdc++'s <fenv.h>, fix it
+patch -Np1 -i ../patches/gcc_fix_fenv_header.patch 
 
 # use patch from mussel:
 patch -Np0 -i ../mussel/patches/gcc/glaucus/0001-pure64-for-x86-64.patch
@@ -41,7 +43,7 @@ mkdir -v build && cd build
              --with-tune=generic \
              --with-arch=x86-64 --enable-languages=c,c++ --disable-bootstrap \
              --enable-initfini-array --disable-multilib --disable-libsanitizer \
-             --disable-werror $APPFLAGS $HELPFLAGS --docdir=/help/gcc-12.2.0
+             --disable-werror $APPFLAGS $HELPFLAGS --docdir=/help/gcc-12.2.0  
 make all-gcc all-target-libgcc
 
 # Check that dynamic loader is set:
@@ -58,13 +60,25 @@ make -C $LFS_TGT/libgcc distclean
 make enable-shared=yes all-target-libgcc
 make install-target-libgcc
 
-# Build and install libstdc++-v3 for c++ support
-make all-target-libstdc++-v3
-make install-target-libstdc++-v3
-
 # Optionally build OpenMP support (libgomp):
 make all-target-libgomp
 make install-target-libgomp
+
+# Build and install libstdc++-v3 for c++ support
+
+# When building, build system tries to use a non-existant glibc header.
+# At the top of the header, comment out references to "sys/single_threaded.h"
+# x86_64-linux-musl/libstdc++-v3/include/ext/atomicity.h
+
+# There is a typo in a header, so comment it out 
+# It's near the top of the header:
+# //#if !defined __cplusplus || defined _GLIBCXX_INCLUDE_NEXT_C_HEADERS
+# //#include_next <fenv.h>
+# //#else
+# in x86_64-linux-musl/libstdc++-v3/include/fenv.h
+
+make all-target-libstdc++-v3
+make install-target-libstdc++-v3
 
 # Verify that all works like expected:
 printf "#include <stdio.h>\nint main(){}\n" > dummy.c
