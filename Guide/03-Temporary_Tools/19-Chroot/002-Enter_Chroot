@@ -1,6 +1,6 @@
 # Enter chroot as root:
-$RPTX/rptx_mount.sh $RPTX
-$RPTX/rptx_chroot.sh $RPTX
+sudo $RPTX/rptx_mount.sh $RPTX
+sudo $RPTX/rptx_chroot.sh $RPTX
 
 # Create directories
 mkdir -pv /build /media /opt
@@ -14,12 +14,13 @@ ln -sfv /system/run      /var/run
 ln -sfv /system/run/lock /var/lock
 ln -sv /system/proc/self/mounts /system/etc/mtab
 ln -sv /system/etc /etc #........................... as bash won't remove the “I have no name!” prompt
-ln -sv /system/dev       /dev
-ln -sv apps              /usr
-ln -sv inc               /apps/include #............ gcc still check /usr/include
+#ln -sv /system/dev       /dev
+#ln -sv apps              /usr
+#ln -sv inc               /apps/include #............ gcc still check /usr/include
 
 
 chmod -v  1777 /tmp
+mkdir /var/tmp
 chmod -v  1777 /var/tmp
 
 touch /var/log/{btmp,lastlog,faillog,wtmp}
